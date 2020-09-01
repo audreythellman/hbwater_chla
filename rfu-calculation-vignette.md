@@ -76,11 +76,11 @@ substrate, date, and weir
 
 To covert from rfu to mg/m2 we use the following equation:
 
-\[RFU_{corrected} \cdot \frac {Slope}{1000} \cdot \frac {V_{EtOH}}{1000}\cdot \frac {1}{SA}\]
-where \(RFU\) is the raw units (corrected by substracting the average of
-the blanks), \(Slope\) is the standard slope (\(\frac {rfu} {ug/L}\)),
-\(V\) is the volume of ethanol (mL) and \(SA\) is the surface area
-(\(m^2\)).
+![equation 1](raw%20data/equation_image.PNG)
+
+where `RFU` is the raw units (corrected by substracting the average of
+the blanks), `Slope` is the standard slope (`rfu/(ug/L)`), `V` is the
+volume of ethanol (mL) and `SA` is the surface area (`m^2`).
 
 To do this calculation, we will source the function `rfu-to-mgm2-chla.R`
 
