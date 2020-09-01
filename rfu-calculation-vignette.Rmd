@@ -2,9 +2,7 @@
 title: "rfu-calculation-vignette"
 author: "Audrey Thellman"
 date: "8/31/2020"
-output:
-  pdf_document: default
-  html_document: default
+output: rmarkdown::github_document
 ---
 
 ```{r setup, include=FALSE}
