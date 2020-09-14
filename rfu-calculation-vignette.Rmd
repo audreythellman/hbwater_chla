@@ -3,10 +3,32 @@ title: "rfu-calculation-vignette"
 author: "Audrey Thellman"
 date: "8/31/2020"
 output: rmarkdown::github_document
+pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+## Introduction
+
+Converting between chlorophyll-a (chl-a) raw units (rfu) and mg/m*\^2* for the Hubbard Brook Experimental Forest long-term algal record
+
+To do this calculation, you need three five things: 
+
+* The sample list file (sample ID, sampling date, substrate, and watershed, or weir)
+* The raw chl-a units (rfu) file with: a) rfu, b) volume of etoh, c) sample ID, and d) chla run number
+* The standard curve slope 
+* The blanks measured for each run 
+* the surface areas of the substrates
+
+In general, the calculation will first, merge the raw data with the sampling listing. Second, subtract average blank values from each run. Third, calculate chl-a in mg/m2 using the slope of the standard curve, the volume of EtOH, and the surface area of the substrates. 
+
+The first thing we need to do is load all required packages and set our project directory. 
+
+``` {r setup2, message = F}
 
 projdir <- getwd() #set project directory 
 
@@ -18,29 +40,37 @@ library(readxl)
 
 ```
 
-## Introduction
 
-Coverting between chlorophyll-a (chl-a) raw units (rfu) and mg/m*\^2* for the Hubbard Brook Experimental Forest long-term algal record
+## Step 1: clean input data
 
-To do this calculation, you need three five things: 
-
-* The sample list file (sample ID, sampling date, substrate, and watershed, or weir)
-* The raw chl-a units (rfu) file with: a) rfu, b) volume of etoh, c) sample ID, and d) chla run number
-* The standard curve slope 
-* The blanks measured for each run 
-* the surface areas of the substrates
-
-In general, the caclulation will first, merge the raw data with the sampling listing. Second, subtract average blank values from each run. Third, calculate chl-a in mg/m2 using the slope of the standard curve, the volume of EtOH, and the surface area of the substrates. 
-
-## Step 1: clean and merge data 
-
-First, load the data into your workspace
+First, load the data into your workspace, if you are using 2 separate csv files for the data, use this code chunk:
 
 ```{r load data}
 rfu_data <- read.csv(paste0(projdir, "/raw data/hbef_chla_rfu.csv"))
 samplinglist <- read.csv(paste0(projdir, "/raw data/samplinglist.csv"), skip = 1)
 ```
 
+If you are using an excel file, un-comment and use this code chunk: 
+```{r load data remix}
+# rfu_data <- read_excel(paste0(projdir, "/raw data/hbef_2019samples_chla.xlsx"), sheet = 1)
+# samplinglist <- read_excel(paste0(projdir, "/raw data/hbef_2019samples_chla.xlsx"), sheet = 2)
+```
+
+To check column compatibility (format check), your column names must match:
+
+```{r check cols, echo=F}
+rfu_data_example <- read.csv(paste0(projdir, "/raw data/hbef_chla_rfu.csv"))
+samplinglist_example <- read.csv(paste0(projdir, "/raw data/samplinglist.csv"), skip = 1)
+```
+``` {r check cols 2}
+#list of column names 
+colnames(rfu_data_example)
+colnames(samplinglist_example)
+```
+
+_If the columns don't match, manually change them and re-add your files_
+
+## Step 2: check for errors and create factors 
 In the next steps, we will: 
 
 1) check that your sample ID's match between `rfu_data` and `samplinglist` 
@@ -49,7 +79,11 @@ In the next steps, we will:
 
 ```{r merge-prep data}
 
-rfu_data[rfu_data$Sample.ID %in% samplinglist$Sample.ID == F,]
+error <- rfu_data[rfu_data$Sample.ID %in% samplinglist$Sample.ID == F,]
+print(error)
+#if there are data that are missing 
+
+rfu_data <- rfu_data[!rfu_data$Sample.ID %in% error$Sample.ID,]
 # if the data's sample ID's do not match, they will show up here on the rfu_data file, check for typos 
 
 chla_data <- merge(rfu_data, samplinglist, by = "Sample.ID", all.x = T) #merge two dataframes by SampleID, keeping all of those values 
@@ -71,7 +105,7 @@ chla_data$Date <- as.Date(chla_data$Date)
 ```
 Now your data should have the required columns of a) rfu value, b) substrate, c) date, d) weir, and e) sampling ID which will give you substrate, date, and weir 
 
-## Step 2: convert from rfu to mg/m^2
+## Step 3: convert from rfu to mg/m^2
 
 To covert from rfu to mg/m2 we use the following equation: 
 
@@ -84,12 +118,15 @@ where `RFU` is the raw units (corrected by substracting the average of the blank
 
 To do this calculation, we will source the function `rfu-to-mgm2-chla.R`
 
-Please pay attention to formatting! The formatting of the sheet must be identical to this example for this function to work. 
+Please pay attention to formatting! The formatting of the sheet must be identical to this example for this function to work. Also, check that `vol_Etoh` and `value_rfu` are "numeric" (e.g. `int` or `num` or `dbl`)
 
-```{r get function}
+```{r get function, message = F}
 surfaceareas <- read_excel(path = paste0(projdir, "/raw data/substrate_surfaceareas.xlsx"), sheet = 1)
 blanks_df <- read.csv(paste0(projdir, "/raw data/slope_and_blanks.csv"))[1:2]
 slope <- as.numeric(read.csv(paste0(projdir, "/raw data/slope_and_blanks.csv"))[1,3])
+
+#check the data
+#str(chla_data)
 
 source("rfu-to-mgm2-chla.R")
 
@@ -100,9 +137,12 @@ head(chla_data2) #view result data
 
 Now, we can save a "tidy" output version of this data, keeping only the parts that we need: 
 
+## Step 4: save the data output
+
+For all output data, we will be using the filename `hbwater_YEAR_chla_output.csv` 
+
 ``` {r save tidy data}
-chla_data3 <- (chla_data2)[c(1,4,5,6,8,9,10,12)]
+chla_data3 <- data.frame(chla_data2[c("Sample.ID","run","vol_Etoh","value_rfu","Date","weir","substrate","value_mgm2")])
 
-write.csv(chla_data3, row.names = F)
-
+#write.csv(chla_data3, row.names = F, file = "hbwater_2019_chla_output.csv")
 ```
