@@ -5,8 +5,8 @@ Audrey Thellman
 
 ## Introduction
 
-Coverting between chlorophyll-a (chl-a) raw units (rfu) and mg/m*^2* for
-the Hubbard Brook Experimental Forest long-term algal record
+Converting between chlorophyll-a (chl-a) raw units (rfu) and mg/m*^2*
+for the Hubbard Brook Experimental Forest long-term algal record
 
 To do this calculation, you need three five things:
 
@@ -18,19 +18,61 @@ To do this calculation, you need three five things:
   - The blanks measured for each run
   - the surface areas of the substrates
 
-In general, the caclulation will first, merge the raw data with the
+In general, the calculation will first, merge the raw data with the
 sampling listing. Second, subtract average blank values from each run.
 Third, calculate chl-a in mg/m2 using the slope of the standard curve,
 the volume of EtOH, and the surface area of the substrates.
 
-## Step 1: clean and merge data
+The first thing we need to do is load all required packages and set our
+project directory.
 
-First, load the data into your workspace
+``` r
+projdir <- getwd() #set project directory 
+
+# add packages 
+
+library(tidyverse)
+library(lubridate)
+library(readxl)
+```
+
+## Step 1: clean input data
+
+First, load the data into your workspace, if you are using 2 separate
+csv files for the data, use this code chunk:
 
 ``` r
 rfu_data <- read.csv(paste0(projdir, "/raw data/hbef_chla_rfu.csv"))
 samplinglist <- read.csv(paste0(projdir, "/raw data/samplinglist.csv"), skip = 1)
 ```
+
+If you are using an excel file, un-comment and use this code chunk:
+
+``` r
+# rfu_data <- read_excel(paste0(projdir, "/raw data/hbef_2019samples_chla.xlsx"), sheet = 1)
+# samplinglist <- read_excel(paste0(projdir, "/raw data/hbef_2019samples_chla.xlsx"), sheet = 2)
+```
+
+To check column compatibility (format check), your column names must
+match:
+
+``` r
+#list of column names 
+colnames(rfu_data_example)
+```
+
+    ## [1] "Sample.ID"  "short_id"   "Flr_sample" "run"        "vol_Etoh"  
+    ## [6] "value_rfu"
+
+``` r
+colnames(samplinglist_example)
+```
+
+    ## [1] "Sample.ID" "WEIR.REP"  "Date"
+
+*If the columns don’t match, manually change them and re-add your files*
+
+## Step 2: check for errors and create factors
 
 In the next steps, we will:
 
@@ -42,13 +84,17 @@ In the next steps, we will:
 <!-- end list -->
 
 ``` r
-rfu_data[rfu_data$Sample.ID %in% samplinglist$Sample.ID == F,]
+error <- rfu_data[rfu_data$Sample.ID %in% samplinglist$Sample.ID == F,]
+print(error)
 ```
 
     ## [1] Sample.ID  short_id   Flr_sample run        vol_Etoh   value_rfu 
     ## <0 rows> (or 0-length row.names)
 
 ``` r
+#if there are data that are missing 
+
+rfu_data <- rfu_data[!rfu_data$Sample.ID %in% error$Sample.ID,]
 # if the data's sample ID's do not match, they will show up here on the rfu_data file, check for typos 
 
 chla_data <- merge(rfu_data, samplinglist, by = "Sample.ID", all.x = T) #merge two dataframes by SampleID, keeping all of those values 
@@ -72,7 +118,7 @@ Now your data should have the required columns of a) rfu value, b)
 substrate, c) date, d) weir, and e) sampling ID which will give you
 substrate, date, and weir
 
-## Step 2: convert from rfu to mg/m^2
+## Step 3: convert from rfu to mg/m^2
 
 To covert from rfu to mg/m2 we use the following equation:
 
@@ -85,18 +131,16 @@ volume of ethanol (mL) and `SA` is the surface area (`m^2`).
 To do this calculation, we will source the function `rfu-to-mgm2-chla.R`
 
 Please pay attention to formatting\! The formatting of the sheet must be
-identical to this example for this function to work.
+identical to this example for this function to work. Also, check that
+`vol_Etoh` and `value_rfu` are “numeric” (e.g. `int` or `num` or `dbl`)
 
 ``` r
 surfaceareas <- read_excel(path = paste0(projdir, "/raw data/substrate_surfaceareas.xlsx"), sheet = 1)
-```
-
-    ## New names:
-    ## * `` -> ...5
-
-``` r
 blanks_df <- read.csv(paste0(projdir, "/raw data/slope_and_blanks.csv"))[1:2]
 slope <- as.numeric(read.csv(paste0(projdir, "/raw data/slope_and_blanks.csv"))[1,3])
+
+#check the data
+#str(chla_data)
 
 source("rfu-to-mgm2-chla.R")
 
@@ -123,142 +167,13 @@ head(chla_data2) #view result data
 Now, we can save a “tidy” output version of this data, keeping only the
 parts that we need:
 
+## Step 4: save the data output
+
+For all output data, we will be using the filename
+`hbwater_YEAR_chla_output.csv`
+
 ``` r
-chla_data3 <- (chla_data2)[c(1,4,5,6,8,9,10,12)]
+chla_data3 <- data.frame(chla_data2[c("Sample.ID","run","vol_Etoh","value_rfu","Date","weir","substrate","value_mgm2")])
 
-write.csv(chla_data3, row.names = F)
+#write.csv(chla_data3, row.names = F, file = "hbwater_2019_chla_output.csv")
 ```
-
-    ## "Sample.ID","run","vol_Etoh","value_rfu","Date","weir","substrate","value_mgm2"
-    ## "CH190001","run1",10,81.91,2019-04-29,"W1","T",0.16078203961574
-    ## "CH190002","run1",20,284.07,2019-04-29,"W1","M",0.431189000572834
-    ## "CH190003","run1",10,18.07,2019-04-29,"W2","T",0.0235828940652867
-    ## "CH190004","run1",20,88.47,2019-04-29,"W2","M",0.126681099046281
-    ## "CH190005","run1",10,105.27,2019-04-29,"W3","T",0.210985235731946
-    ## "CH190006","run1",20,279.11,2019-04-29,"W3","M",0.423467327814288
-    ## "CH190007","run1",10,112.91,2019-04-29,"W4","T",0.227404431722006
-    ## "CH190008","run1",20,587.57,2019-04-29,"W4","M",0.903674420375028
-    ## "CH190009","run1",10,40.11,2019-04-29,"W5","T",0.0709492657434193
-    ## "CH190010","run1",20,286.54,2019-04-29,"W5","M",0.435034269063482
-    ## "CH190011","run1",10,213.86,2019-04-29,"W6","T",0.444357027951928
-    ## "CH190012","run1",20,114.86,2019-04-29,"W6","M",0.167764757130564
-    ## "CH190015","run1",10,81.05,2019-05-06,"W1","T",0.158933805512147
-    ## "CH190016","run1",20,245.43,2019-05-06,"W1","M",0.371034678921577
-    ## "CH190017","run1",10,1884.83,2019-05-06,"W2","T",4.03545440013928
-    ## "CH190018","run1",20,152.34,2019-05-06,"W2","M",0.226113203701194
-    ## "CH190019","run1",10,31.23,2019-05-06,"W3","T",0.0518651740691082
-    ## "CH190020","run1",20,391.9,2019-05-06,"W3","M",0.599057543628091
-    ## "CH190021","run1",10,91.25,2019-05-06,"W4","T",0.180854721624531
-    ## "CH190022","run1",20,820.75,2019-05-06,"W4","M",1.26668644735847
-    ## "CH190023","run1",10,17.53,2019-05-06,"W5","T",0.022422374976984
-    ## "CH190024","run1",20,447.1,2019-05-06,"W5","M",0.684992288844174
-    ## "CH190025","run1",10,64.34,2019-05-06,"W6","T",0.123022187057446
-    ## "CH190026","run1",20,305.76,2019-05-06,"W6","M",0.46495575100285
-    ## "CH190029","run1",10,142.29,2019-05-13,"W1","T",0.290545266563364
-    ## "CH190030","run1",20,737.74,2019-05-13,"W1","M",1.1374574038732
-    ## "CH190031","run1",10,37.94,2019-05-13,"W2","T",0.0662856982959807
-    ## "CH190032","run1",20,219.26,2019-05-13,"W2","M",0.330293514387068
-    ## "CH190033","run1",10,13.7,2019-05-13,"W3","T",0.014191285887726
-    ## "CH190034","run1",20,460.78,2019-05-13,"W3","M",0.706289160484681
-    ## "CH190035","run1",10,178.35,2019-05-13,"W4","T",0.368042152348912
-    ## "CH190036","run1",20,1268.42,2019-05-13,"W4","M",1.96361411748318
-    ## "CH190037","run1",10,51.51,2019-05-13,"W5","T",0.0954491131631431
-    ## "CH190038","run1",20,716.06,2019-05-13,"W5","M",1.10370622133181
-    ## "CH190039","run1",10,268.04,2019-05-13,"W6","T",0.5607957764783
-    ## "CH190040","run1",20,1080,2019-05-13,"W6","M",1.67028395999016
-    ## "CH190041","run1",10,82.5,2019-05-13,"W9","T",0.162050014175182
-    ## "CH190042","run1",20,463.03,2019-05-13,"W9","M",0.709791935425554
-    ## "CH190043","run1",10,96.92,2019-05-21,"W1","T",0.193040172051709
-    ## "CH190044","run1",20,823.67,2019-05-21,"W1","M",1.27123227083729
-    ## "CH190045","run1",10,157.43,2019-05-21,"W2","T",0.323082783224296
-    ## "CH190046","run1",20,208.74,2019-05-21,"W2","M",0.313916095552409
-    ## "CH190047","run1",10,26.66,2019-05-21,"W3","T",0.0420437440069909
-    ## "CH190048","run1",20,2233.48,2019-05-21,"W3","M",3.46600877723377
-    ## "CH190049","run1",10,169.01,2019-05-21,"W4","T",0.34796947034012
-    ## "CH190050","run1",20,1163.86,2019-05-21,"W4","M",1.80083627400865
-    ## "CH190051","run1",10,55.43,2019-05-21,"W5","T",0.103873622100452
-    ## "CH190052","run1",20,915.13,2019-05-21,"W5","M",1.41361618021162
-    ## "CH190053","run1",10,235.16,2019-05-21,"W6","T",0.490133058657202
-    ## "CH190054","run1",20,1440.14,2019-05-21,"W6","M",2.2309459009706
-    ## "CH190055","run1",10,92.53,2019-05-21,"W9","T",0.183605581685693
-    ## "CH190056","run1",20,700.3,2019-05-21,"W9","M",1.07917122885707
-    ## "CH190057","run1",10,567.8,2019-05-28,"W1","T",1.20501281705167
-    ## "CH190058","run1",20,2365.46,2019-05-28,"W1","M",3.67147377132106
-    ## "CH190059","run1",10,140.77,2019-05-28,"W2","T",0.287278620240735
-    ## "CH190060","run1",20,437.43,2019-05-28,"W2","M",0.669938140542733
-    ## "CH190061","run1",10,312.3,2019-05-28,"W3","T",0.655915359530666
-    ## "CH190062","run1",20,4126.33,2019-05-28,"W3","M",6.41277657582547
-    ## "CH190063","run1",10,388.46,2019-05-28,"W4","T",0.819591533169803
-    ## "CH190064","run1",20,1488.5,2019-05-28,"W4","M",2.30623221036643
-    ## "CH190065","run1",10,68.53,2019-05-28,"W5","T",0.132026955538906
-    ## "CH190066","run1",20,1458.24,2019-05-28,"W5","M",2.25912377938384
-    ## "CH190067","run1",10,628.57,2019-05-28,"W6","T",1.33561419667418
-    ## "CH190068","run1",20,2389.19,2019-05-28,"W6","M",3.7084163710308
-    ## "CH190069","run1",10,469.57,2019-05-28,"W9","T",0.993905798451715
-    ## "CH190070","run1",20,2364.69,2019-05-28,"W9","M",3.67027504389685
-    ## "CH190071","run2",10,1169.57,2019-06-02,"W1","T",2.45949813302439
-    ## "CH190072","run2",20,2732.37,2019-06-02,"W1","M",4.21458032323317
-    ## "CH190073","run2",10,191.3,2019-06-02,"W2","T",0.357088857998676
-    ## "CH190074","run2",20,955.19,2019-06-02,"W2","M",1.44788629237959
-    ## "CH190075","run2",10,457.06,2019-06-02,"W3","T",0.928236178197429
-    ## "CH190076","run2",20,4828.51,2019-06-02,"W3","M",7.4778277297049
-    ## "CH190077","run2",10,303.84,2019-06-02,"W4","T",0.59894963243865
-    ## "CH190078","run2",20,1550.27,2019-06-02,"W4","M",2.37430020874166
-    ## "CH190079","run2",10,111.08,2019-06-02,"W5","T",0.18468730010304
-    ## "CH190080","run2",20,2031.51,2019-06-02,"W5","M",3.12348928098419
-    ## "CH190081","run2",10,405.56,2019-06-02,"W6","T",0.817557042924115
-    ## "CH190082","run2",20,4372.68,2019-06-02,"W6","M",6.76819666246129
-    ## "CH190083","run2",10,518.89,2019-06-02,"W9","T",1.06111561380809
-    ## "CH190084","run2",20,2724.51,2019-06-02,"W9","M",4.20234396277305
-    ## "CH190085","run2",10,1336.91,2019-06-10,"W1","T",2.81913010383286
-    ## "CH190086","run2",20,3282.71,2019-06-10,"W1","M",5.07134350588206
-    ## "CH190087","run2",10,238.73,2019-06-10,"W2","T",0.459021117921263
-    ## "CH190088","run2",20,1371.16,2019-06-10,"W2","M",2.09546375555955
-    ## "CH190089","run2",10,758.01,2019-06-10,"W3","T",1.57501065898391
-    ## "CH190090","run2",20,5199.57,2019-06-10,"W3","M",8.05548980506503
-    ## "CH190091","run2",10,589.53,2019-06-10,"W4","T",1.21292870343346
-    ## "CH190092","run2",20,2345.7,2019-06-10,"W4","M",3.61261677372769
-    ## "CH190093","run2",10,213.53,2019-06-10,"W5","T",0.404863560467137
-    ## "CH190094","run2",20,1909.34,2019-06-10,"W5","M",2.9332963856391
-    ## "CH190095","run2",10,304.44,2019-06-10,"W6","T",0.60023909809232
-    ## "CH190096","run2",20,3046.5,2019-06-10,"W6","M",4.70361440864491
-    ## "CH190097","run2",10,367.34,2019-06-10,"W9","T",0.735418080785357
-    ## "CH190098","run2",20,1713.22,2019-06-10,"W9","M",2.62797895390399
-    ## "CH190099","run2",10,1201.82,2019-06-17,"W1","T",2.52880691190914
-    ## "CH190100","run2",20,4013.93,2019-06-17,"W1","M",6.20969865799989
-    ## "CH190101","run2",10,331.52,2019-06-17,"W2","T",0.658436981261278
-    ## "CH190102","run2",20,1783.8,2019-06-17,"W2","M",2.73785711182702
-    ## "CH190103","run2",10,609.81,2019-06-17,"W3","T",1.2565126425275
-    ## "CH190104","run2",20,5918.77,2019-06-17,"W3","M",9.17513235505428
-    ## "CH190105","run2",10,837.99,2019-06-17,"W4","T",1.74689643061808
-    ## "CH190106","run2",20,2160.32,2019-06-17,"W4","M",3.32401925437701
-    ## "CH190107","run2",10,215.83,2019-06-17,"W5","T",0.409806512139537
-    ## "CH190108","run2",20,2650.02,2019-06-17,"W5","M",4.08637876039722
-    ## "CH190109","run2",10,598.98,2019-06-17,"W6","T",1.23323778747876
-    ## "CH190110","run2",20,3365.4,2019-06-17,"W6","M",5.2000743769313
-    ## "CH190111","run2",10,332.04,2019-06-17,"W9","T",0.659554518161125
-    ## "CH190112","run2",20,3442.07,2019-06-17,"W9","M",5.31943337902762
-    ## "CH190113","run2",10,1823.64,2019-06-24,"W1","T",3.86516613318393
-    ## "CH190114","run2",20,5041.57,2019-06-24,"W1","M",7.80951716477262
-    ## "CH190115","run2",10,377.5,2019-06-24,"W2","T",0.75725303252083
-    ## "CH190116","run2",20,1835.64,2019-06-24,"W2","M",2.81856104646473
-    ## "CH190117","run2",10,1005.42,2019-06-24,"W3","T",2.1067218212746
-    ## "CH190118","run2",20,6974.29,2019-06-24,"W3","M",10.8183541353166
-    ## "CH190119","run2",10,1219.3,2019-06-24,"W4","T",2.56637334461938
-    ## "CH190120","run2",20,2814.03,2019-06-24,"W4","M",4.34170770175392
-    ## "CH190121","run2",10,521.64,2019-06-24,"W5","T",1.06702566472074
-    ## "CH190122","run2",20,3797.15,2019-06-24,"W5","M",5.87221796836325
-    ## "CH190123","run2",10,512.5,2019-06-24,"W6","T",1.04738280459651
-    ## "CH190124","run2",20,5926.96,2019-06-24,"W6","M",9.18788245583906
-    ## "CH190125","run2",10,493.5,2019-06-24,"W9","T",1.00654972556363
-    ## "CH190126","run2",20,4945.01,2019-06-24,"W9","M",7.65919363219898
-    ## "CH190127","run2",10,1547.05,2019-07-01,"W1","T",3.27074395793644
-    ## "CH190128","run2",20,6648.09,2019-07-01,"W1","M",10.3105296083331
-    ## "CH190129","run2",10,309.85,2019-07-01,"W2","T",0.611865780069575
-    ## "CH190130","run2",20,1741.82,2019-07-01,"W2","M",2.67250311537464
-    ## "CH190131","run2",10,1523.9,2019-07-01,"W3","T",3.22099207479902
-    ## "CH190132","run2",20,8441.93,2019-07-01,"W3","M",13.1031597416378
-    ## "CH190133","run2",10,783.35,2019-07-01,"W4","T",1.62946909175722
-    ## "CH190134","run2",20,2899.53,2019-07-01,"W4","M",4.47481314950709
-    ## "CH190135","run2",10,863.85,2019-07-01,"W5","T",1.80247240029124
-    ## "CH190136","run2",20,3851.86,2019-07-01,"W5","M",5.95738988703665
