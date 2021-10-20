@@ -3,4 +3,9 @@
 .RData
 .Ruserdata
 
+sandbox/
+final data/
+figures/
+raw data/chla_data/
+
 #ignore these files 

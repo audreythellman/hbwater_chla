@@ -1,7 +1,7 @@
 rfu-calculation-vignette
 ================
 Audrey Thellman
-8/31/2020
+10/20/2021
 
 ## Introduction
 
@@ -27,96 +27,261 @@ The first thing we need to do is load all required packages and set our
 project directory.
 
 ``` r
-projdir <- getwd() #set project directory 
-
 # add packages 
 
+library(googledrive)
 library(tidyverse)
 library(lubridate)
 library(readxl)
+
+`%notin%` <- Negate(`%in%`)
 ```
 
-## Step 1: clean input data
+Make sure to `install.packages()` that are not loaded onto your machine.
+Finally, this script uses google drive. Let’s authorize `tidyverse` to
+have access to our files. When prompted, check “see, edit, create, and
+delete all of your Google Drive files”
 
-First, load the data into your workspace, if you are using 2 separate
-csv files for the data, use this code chunk:
+![google drive authentication](raw%20data/google_drive_auth.PNG)
+
+Check that `googledrive` is properly set-up by running this code:
 
 ``` r
-rfu_data <- read.csv(paste0(projdir, "/raw data/hbef_chla_rfu.csv"))
-samplinglist <- read.csv(paste0(projdir, "/raw data/samplinglist.csv"), skip = 1)
+drive_find(n_max = 30)
 ```
 
-If you are using an excel file, un-comment and use this code chunk:
+If it runs, you should get a list of recently opened files on your
+google drive & their link `id`; this is how we will temporarily download
+files from google drive to use in our script.
+
+Finally, *we strongly recommend downloading this code from github* so
+that you have a copy of the folder structure and source files on your
+computer. You can clone this repository through a)
+[SSP/HTTPS](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories)
+or b) by downloading a zip folder. If downloading, make sure to put the
+[hbwater\_chla](https://github.com/audreythellman/hbwater_chla) folder
+where you want it to live on your computer. For example, my
+`hbwater_chla` folder is a sub-folder within my `_HBEF` research folder
+on my computer.
+
+## Step 1: manually input data
+
+First, manually clean your data. Three items are needed for calculation:
+1) the rfu data frame 2) the standard blank data frame 3) surface area
+calculations from imageJ 4) a slope estimate 5) the sample list.
+
+  - *Note: the HB WaTER slope from the 2018 standard curve is: 0.2317*
+  - *Note: the raw data for each year are located in `1_Algae/Data/raw
+    data/Chla- raw run files`*
+
+We recommend downloading a copy of the data and formatting the new data
+in the same way (see: [2020
+RFU](https://docs.google.com/spreadsheets/d/1upnEjjn9tV2HmHWzrN-PuQlx7YOTkYBg/edit?usp=sharing&ouid=114138765499543876405&rtpof=true&sd=true))
+
+  - *Note: each of the different data frames are saved as three
+    different excel sheets labeled: rfu, blanks, & sa.*
+  - *Note: the formatting for this file name is:
+    hbwtr\_chla\_rfu\_YEAR.xlsx*
+
+Re-upload this newly formatted data to the `input data` sub-folder in
+`1_Algae/Data/` folder. The next steps pull from the google drive
+uploaded data.
+
+Next, you are going to update **your local copy** of
+`samplinglist_updated.xlsx` in the `hbwater_chla` folder. *You can find
+updated sampling listing from the year files in `_Sample Listing` on the
+HB WaTER Google Drive.*
+
+Now that you’ve:
+
+1)  compiled a file with the name `hbwtr_chla_rfu_YEAR.xlsx`
+2)  uploaded that file to Google Drive
+3)  updated the *local copy* of `samplinglist_updated.xlsx`
+
+you are ready to move on to the next steps\!
+
+## Step 2: programatically clean data
+
+We are ready to clean our data and check compatibility with our
+calculation code chunk\! Open up a new R script within `hbwater_chla`
+and follow the steps.
+
+First we are going to locate & load the data:
 
 ``` r
-# rfu_data <- read_excel(paste0(projdir, "/raw data/hbef_2019samples_chla.xlsx"), sheet = 1)
-# samplinglist <- read_excel(paste0(projdir, "/raw data/hbef_2019samples_chla.xlsx"), sheet = 2)
+drive_find(pattern = "input data", n_max = 30) #find this data file
 ```
+
+This above code chunk will give you the `id` of the `input data` folder
+that we will use to extract `hbwtr_chla_rfu_YEAR.xlsx` from Google
+Drive.
+
+Copy this `id` to the clipboard and run the following code:
+
+``` 
+  (input_data_folder <- drive_ls(as_id("INSERT COPIED id IN QUOTES")))
+```
+
+From here, you will get a list of the input files. Remember the number
+of the file you are going to clean. In this case, we are going to clean
+file \#1 corresponding to 2020 data.
+
+To clean the data, run this chunk of code:
+
+``` r
+get_chla_data_fr_drive <- function(fileno, sa) {
+  #fileno <- 3
+  
+  temp <- tempfile(fileext = ".xlsx")
+  dl <- drive_download(
+    as_id(input_data_folder[fileno,]$id), path = temp, overwrite = TRUE)
+  
+  rfu <- read_excel(temp, sheet = "rfu", col_types = c("text",
+                                                       "numeric",
+                                                       "numeric", 
+                                                       "text", 
+                                                       "numeric",
+                                                       "text", 
+                                                       "text"))
+  blanks <- read_excel(temp, sheet = "blanks")[1:4]
+  
+  if(sa == TRUE) {
+    sa <- read_excel(temp, sheet = "sa", col_types = c("text",
+                                                        "text", 
+                                                        "numeric",
+                                                        "numeric", 
+                                                        "numeric", 
+                                                        "text", 
+                                                        "numeric", 
+                                                        "text"))
+  }
+  else {
+    sa <- read_excel("./raw data/substrate_surfaceareas.xlsx")[1:4]
+  }
+  
+  samplinglist <- read_excel("./raw data/samplinglist_updated.xlsx", col_types = c("date", 
+                                                                                   "text", 
+                                                                                   "text", 
+                                                                                   "text"))
+  #max(samplinglist$DATE) #NOTE THIS IS LAST DATE ENTERED 
+  
+  chla_rfu <- list(rfu,blanks,sa,samplinglist)
+  names(chla_rfu) <- c("rfu",
+                       "blanks",
+                       "sa", 
+                       "samplist")
+  
+  print(paste("NOTE: the last date entered in the sampling list is", max(samplinglist$DATE)))
+  return(chla_rfu)
+  
+}
+```
+
+*This function pulls down the data, formats it, and adds it to the R
+global environment*
+
+Next, run this function on your file number and save as `chla`, set
+surface area (`sa = TRUE`) for all files after 2020:
+
+``` r
+chla <- get_chla_data_fr_drive(1, sa = TRUE)
+```
+
+    ## File downloaded:
+
+    ## * 'hbwtr_chla_rfu_2020_corrected.xlsx' <id: 1upnEjjn9tV2HmHWzrN-PuQlx7YOTkYBg>
+
+    ## Saved locally as:
+
+    ## * 'C:\Users\Thell\AppData\Local\Temp\RtmpCiF9dx\file6704cc8275c.xlsx'
+
+    ## Warning in read_fun(path = enc2native(normalizePath(path)), sheet_i = sheet, :
+    ## Expecting numeric in B263 / R263C2: got 'NA'
+
+*The function will tell you what your last date entered is & the file
+you downloaded. Be sure this is a later date than the last chla value
+ran & the correct file*
 
 To check column compatibility (format check), your column names must
 match:
 
-``` r
-#list of column names 
-colnames(rfu_data_example)
-```
+    ## [1] "Flr_sample" "value_rfu"  "short_id"   "SampleID"   "vol_Etoh"  
+    ## [6] "run"        "Notes"
 
-    ## [1] "Sample.ID"  "short_id"   "Flr_sample" "run"        "vol_Etoh"  
-    ## [6] "value_rfu"
+    ## [1] "Flr_sample" "value_rfu"  "SampleID"   "run"
 
-``` r
-colnames(samplinglist_example)
-```
+    ## [1] "SampleID"      "side"          "imagej_#"      "length_mm"    
+    ## [5] "length_m"      "file_name"     "pixels_per_mm" "notes"
 
-    ## [1] "Sample.ID" "WEIR.REP"  "Date"
+    ## [1] "DATE"     "WEIR-REP" "SampleID" "notes"
 
-*If the columns don’t match, manually change them and re-add your files*
+*If the columns don’t match, manually change them and re-add your files
+to **Google Drive***
 
-## Step 2: check for errors and create factors
+## Step 2: check for errors and duplicates
 
 In the next steps, we will:
 
-1)  check that your sample ID’s match between `rfu_data` and
+1)  check that your sample ID’s match between `rfu` and `samplinglist`
+2)  check if there are any duplicate values in `rfu`
+3)  check if there is any missing data based on `SampleIDs` in
     `samplinglist`
-2)  create factors for weir and substrate
-3)  assign a substrate code (see `substrate_surfaceareas.xlsx`)
 
-<!-- end list -->
+This will identify values that are duplicated:
 
 ``` r
-error <- rfu_data[rfu_data$Sample.ID %in% samplinglist$Sample.ID == F,]
-print(error)
+(dups <- chla[["rfu"]]$SampleID[which(duplicated(chla[["rfu"]]$SampleID))]) 
 ```
 
-    ## [1] Sample.ID  short_id   Flr_sample run        vol_Etoh   value_rfu 
-    ## <0 rows> (or 0-length row.names)
+    ## character(0)
+
+This will help you visually ID columns that are duplicated:
 
 ``` r
-#if there are data that are missing 
-
-rfu_data <- rfu_data[!rfu_data$Sample.ID %in% error$Sample.ID,]
-# if the data's sample ID's do not match, they will show up here on the rfu_data file, check for typos 
-
-chla_data <- merge(rfu_data, samplinglist, by = "Sample.ID", all.x = T) #merge two dataframes by SampleID, keeping all of those values 
-
-#create factors for weir and substrate 
-
-chla_data$weir <- as.factor(substr(chla_data$WEIR.REP, 1,2))
-chla_data$substrate <- as.factor(substr(chla_data$WEIR.REP,4,4))
-
-#assign substrate code (NOTE ONLY FOR 2019+ SAMPLES)
-chla_data$subs_code <- as.factor(ifelse(chla_data$substrate == "M", "M_b", "T"))
-
-#only run for 2018 samples 
-#chla_data$subs_code <- ifelse(chla_data$substrate == "M", "M_s", chla_data$substrate)
-
-#change to date format 
-chla_data$Date <- as.Date(chla_data$Date)
+chla[["rfu"]] %>% filter(SampleID %in% dups) 
 ```
+
+    ## # A tibble: 0 x 7
+    ## # ... with 7 variables: Flr_sample <chr>, value_rfu <dbl>, short_id <dbl>,
+    ## #   SampleID <chr>, vol_Etoh <dbl>, run <chr>, Notes <chr>
+
+This will tell you if any of your samples are mislabeled
+
+``` r
+chla[["rfu"]]$SampleID[which(chla[["rfu"]]$SampleID %notin% chla[["samplist"]]$SampleID)] 
+```
+
+    ## character(0)
+
+If any of the above show as duplicates, try to resolve this issue
+manually in Google Drive and restart from **Step 2**.
+
+Next, check if there are any missing data using the following function.
+Input the year that you are checking in the second line (e.g. if
+`hbwtr_chla_rfu_2020.xlsx` then type `2020`)
+
+``` r
+missing_data_check <- function(year) {
+ # year <- 2020
+  sub_year <- substr(year,3,4)
+  year_samps <- 
+    chla[["samplist"]]$SampleID[which(grepl(sub_year, substr(chla[["samplist"]]$SampleID,1,4)))]
+  
+  print(paste(year_samps[which(year_samps %notin% chla[["rfu"]]$SampleID)], 
+              "is missing from the RFU run sheet"))
+}
+
+missing_data_check(2020)
+```
+
+    ## [1] "CH200013 is missing from the RFU run sheet"
+    ## [2] "CH200014 is missing from the RFU run sheet"
+    ## [3] "CH200497 is missing from the RFU run sheet"
+    ## [4] "CH200498 is missing from the RFU run sheet"
 
 Now your data should have the required columns of a) rfu value, b)
 substrate, c) date, d) weir, and e) sampling ID which will give you
-substrate, date, and weir
+substrate, date, and weir and we are ready to calculate chla to mg/m^2.
 
 ## Step 3: convert from rfu to mg/m^2
 
@@ -128,41 +293,108 @@ where `RFU` is the raw units (corrected by substracting the average of
 the blanks), `Slope` is the standard slope (`rfu/(ug/L)`), `V` is the
 volume of ethanol (mL) and `SA` is the surface area (`m^2`).
 
-To do this calculation, we will source the function `rfu-to-mgm2-chla.R`
-
-Please pay attention to formatting\! The formatting of the sheet must be
-identical to this example for this function to work. Also, check that
-`vol_Etoh` and `value_rfu` are “numeric” (e.g. `int` or `num` or `dbl`)
+The following loads the function, which is a functino of the chla\_list
+(should be `chla`) and the slope (`slp`):
 
 ``` r
-surfaceareas <- read_excel(path = paste0(projdir, "/raw data/substrate_surfaceareas.xlsx"), sheet = 1)
-blanks_df <- read.csv(paste0(projdir, "/raw data/slope_and_blanks.csv"))[1:2]
-slope <- as.numeric(read.csv(paste0(projdir, "/raw data/slope_and_blanks.csv"))[1,3])
+rfu_to_mgm2 <- function(chla_list, slp) {
 
-#check the data
-#str(chla_data)
-
-source("rfu-to-mgm2-chla.R")
-
-chla_data2 <- rfu_mgm2_chla(chla_df = chla_data, sa_df = surfaceareas, slp = slope, blank_df = blanks_df)
-
-head(chla_data2) #view result data 
+      #then remove duplicates
+      dups <- chla[["rfu"]]$SampleID[which(duplicated(chla[["rfu"]]$SampleID))] 
+      #this will identify values that are duplicated 
+      #chla_duplicated <- chla[["rfu"]] %>% filter(SampleID %in% dups) 
+      #this will help you visually ID columns
+      chla_filtered <- chla[["rfu"]] %>% filter(SampleID %notin% dups)
+      
+      chla_wID <- left_join(chla_filtered, chla[["samplist"]], by = "SampleID")
+      chla_wID$weir <- as.factor(substr(chla_wID$`WEIR-REP`, 1, 2))
+      chla_wID$rep <- as.factor(substr(chla_wID$`WEIR-REP`, 4, nchar(chla_wID$`WEIR-REP`)))
+      
+      if (year(chla_wID$DATE)[1] >= 2020) {
+        
+        moss_sa <- chla[["sa"]] %>%
+          mutate(height_m = 0.0254) %>% 
+          mutate(two_side_sa = 2*height_m*length_m) %>%
+          group_by(SampleID) %>% 
+          summarise(surface_area = 2*prod(length_m) + sum(two_side_sa))
+        
+        chla_wsurface <- left_join(chla_wID, moss_sa, by = "SampleID")
+      }
+      
+      if (year(chla_wID$DATE)[1] == 2018) {
+        moss_sa <- chla[["sa"]] %>% filter(subs_code == "M_s")
+        mosstile_sa <- chla[["sa"]] %>% filter(subs_code == "MT")
+        chla_wsurface <- chla_wID
+        chla_wsurface$surface_area <- ifelse(chla_wID$rep == "M", moss_sa$surface_area_m2, 
+                                             ifelse(chla_wID$rep == "MT", 
+                                                    mosstile_sa$surface_area_m2, NA))
+      }
+      
+      if (year(chla_wID$DATE)[1] == 2019) {
+        moss_sa <- chla[["sa"]] %>% filter(subs_code== "M_b")
+        chla_wsurface <- chla_wID
+        chla_wsurface$surface_area <- ifelse(chla_wID$rep == "M", moss_sa$surface_area_m2, NA)
+      }
+      
+      chla_wsurface$surface_area <- ifelse(chla_wsurface$rep == "T", 
+                                           0.001078121, chla_wsurface$surface_area)
+      
+      ## internal function 
+      int_function <- function(rfu, vol, run, sa) {
+        blankmeans <- 
+          chla[["blanks"]] %>% group_by(run) %>% summarise(blank_mean = mean(value_rfu, na.rm = T))
+        rfu_cor1 <- rfu - blankmeans$blank_mean[which(blankmeans$run == run)] 
+        rfu_cor <- ifelse(rfu_cor1 < 0, 0, rfu_cor1)
+        
+        mg_m2 <- rfu_cor*slp*(1/1000)*(vol/1000)*(1/sa) #1000's for conversion factors 
+        return(mg_m2)
+        
+      }
+      
+      chla_wsurface$notes_fromRFU <- ifelse(is.na(chla_wsurface$notes) & is.na(chla_wsurface$Notes), NA, 
+             ifelse(!is.na(chla_wsurface$notes) & !is.na(chla_wsurface$Notes), 
+                    paste0(chla_wsurface$Notes,"; ",chla_wsurface$notes), 
+                    ifelse(is.na(chla_wsurface$notes) & !is.na(chla_wsurface$Notes), 
+                           chla_wsurface$Notes, chla_wsurface$notes))
+             )
+      
+      chla_mgm2 <- chla_wsurface %>% select(!c(Notes, notes)) 
+      chla_mgm2$notes_calculation <- ifelse(is.na(chla_mgm2$surface_area), 
+                                            "replaced with mean moss SA", NA)
+      
+      chla_mgm2$surface_area <- 
+        ifelse(is.na(chla_mgm2$surface_area), 
+               mean(chla_mgm2$surface_area[chla_mgm2$rep %in% c("M", "WM", "WM-zero")], na.rm = T), 
+                                       chla_mgm2$surface_area)
+      
+      chla_mgm2$value_mgm2 <- mapply(int_function, 
+                                     chla_mgm2$value_rfu, 
+                                     chla_mgm2$vol_Etoh, 
+                                     chla_mgm2$run, 
+                                     chla_mgm2$surface_area)
+ 
+      if(sum(!is.na(chla_mgm2$notes_calculation)) > 1){
+        warning("Some of the surface areas were replaced 
+                with the average moss SA; see notes_calculation")
+      }
+      warning("All duplicate values were removed to complete this analysis")
+      return(chla_mgm2 %>% 
+                    select(!c(Flr_sample, short_id, vol_Etoh, run)) %>% 
+                    relocate(SampleID, DATE, `WEIR-REP`, value_mgm2))
+}
 ```
 
-    ##   Sample.ID short_id Flr_sample  run vol_Etoh value_rfu WEIR.REP       Date
-    ## 1  CH190001        1 SAMPLE-008 run1       10     81.91     W1-T 2019-04-29
-    ## 2  CH190002        2 SAMPLE-009 run1       20    284.07     W1-M 2019-04-29
-    ## 3  CH190003        3 SAMPLE-010 run1       10     18.07     W2-T 2019-04-29
-    ## 4  CH190004        4  AMPLE-011 run1       20     88.47     W2-M 2019-04-29
-    ## 5  CH190005        5 SAMPLE-012 run1       10    105.27     W3-T 2019-04-29
-    ## 6  CH190006        6 SAMPLE-013 run1       20    279.11     W3-M 2019-04-29
-    ##   weir substrate subs_code value_mgm2
-    ## 1   W1         T         T 0.16078204
-    ## 2   W1         M       M_b 0.43118900
-    ## 3   W2         T         T 0.02358289
-    ## 4   W2         M       M_b 0.12668110
-    ## 5   W3         T         T 0.21098524
-    ## 6   W3         M       M_b 0.42346733
+Next, we can run the function on the 2020 example data.
+
+``` r
+hbwtr_chla_mgm2_2020 <- rfu_to_mgm2(chla_list = chla, slp = 0.2317)
+```
+
+    ## Warning in rfu_to_mgm2(chla_list = chla, slp = 0.2317): Some of the surface areas were replaced 
+    ##                 with the average moss SA; see notes_calculation
+
+    ## Warning in rfu_to_mgm2(chla_list = chla, slp = 0.2317): All duplicate values
+    ## were removed to complete this analysis
 
 Now, we can save a “tidy” output version of this data, keeping only the
 parts that we need:
@@ -170,10 +402,11 @@ parts that we need:
 ## Step 4: save the data output
 
 For all output data, we will be using the filename
-`hbwater_YEAR_chla_output.csv`
+`hbwtr_chla_mgm2_YEAR.csv`
 
 ``` r
-chla_data3 <- data.frame(chla_data2[c("Sample.ID","run","vol_Etoh","value_rfu","Date","weir","substrate","value_mgm2")])
-
-#write.csv(chla_data3, row.names = F, file = "hbwater_2019_chla_output.csv")
+write.csv(hbwtr_chla_mgm2_2020, "./final data/hbwtr_chla_mgm2_2020.csv", row.names = F)
 ```
+
+Finally, upload this data to Google Drive in the `1_Algae/Data/final
+data` folder\! All done :)
