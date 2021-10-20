@@ -5,8 +5,9 @@ Audrey Thellman
 
 ## Introduction
 
-Converting between chlorophyll-a (chl-a) raw units (rfu) and mg/m*^2*
-for the Hubbard Brook Experimental Forest long-term algal record
+Converting between chlorophyll-a (chl-a) raw units (rfu) and
+mg/m<sup>2</sup> for the Hubbard Brook Experimental Forest long-term
+algal record
 
 To do this calculation, you need three five things:
 
@@ -23,8 +24,24 @@ sampling listing. Second, subtract average blank values from each run.
 Third, calculate chl-a in mg/m2 using the slope of the standard curve,
 the volume of EtOH, and the surface area of the substrates.
 
-The first thing we need to do is load all required packages and set our
-project directory.
+### Ready to Start?
+
+*We strongly recommend downloading this code from github* so that you
+have a copy of the folder structure and source files on your computer. -
+You can clone this repository through a)
+[SSP/HTTPS](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories)
+or b) by downloading a zip folder. If downloading, make sure to put the
+[hbwater\_chla](https://github.com/audreythellman/hbwater_chla) folder
+where you want it to live on your computer. For example, my
+`hbwater_chla` folder is a sub-folder within my `_HBEF` research folder
+on my computer.
+
+Open up a new R script within `hbwater_chla` and follow the steps. We
+recommend opening the `*.Rproj` file because it will automatically
+create the correct **working directory**
+
+Once you have the Rscript open in the hbef\_chla project, we can add our
+packages:
 
 ``` r
 # add packages 
@@ -38,7 +55,7 @@ library(readxl)
 ```
 
 Make sure to `install.packages()` that are not loaded onto your machine.
-Finally, this script uses google drive. Let’s authorize `tidyverse` to
+Finally, this script uses Google Drive. Let’s authorize `tidyverse` to
 have access to our files. When prompted, check “see, edit, create, and
 delete all of your Google Drive files”
 
@@ -51,24 +68,20 @@ drive_find(n_max = 30)
 ```
 
 If it runs, you should get a list of recently opened files on your
-google drive & their link `id`; this is how we will temporarily download
-files from google drive to use in our script.
-
-Finally, *we strongly recommend downloading this code from github* so
-that you have a copy of the folder structure and source files on your
-computer. You can clone this repository through a)
-[SSP/HTTPS](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories)
-or b) by downloading a zip folder. If downloading, make sure to put the
-[hbwater\_chla](https://github.com/audreythellman/hbwater_chla) folder
-where you want it to live on your computer. For example, my
-`hbwater_chla` folder is a sub-folder within my `_HBEF` research folder
-on my computer.
+Google Drive & their link `id`; this is how we will temporarily download
+files from Google Drive to use in our script.
 
 ## Step 1: manually input data
 
-First, manually clean your data. Three items are needed for calculation:
-1) the rfu data frame 2) the standard blank data frame 3) surface area
-calculations from imageJ 4) a slope estimate 5) the sample list.
+First, manually clean your data. Five items are needed for calculation:
+
+1)  the rfu data frame
+2)  the standard blank data frame
+3)  surface area calculations from imageJ
+4)  a slope estimate
+5)  the sample list.
+
+<!-- end list -->
 
   - *Note: the HB WaTER slope from the 2018 standard curve is: 0.2317*
   - *Note: the raw data for each year are located in `1_Algae/Data/raw
@@ -103,10 +116,7 @@ you are ready to move on to the next steps\!
 ## Step 2: programatically clean data
 
 We are ready to clean our data and check compatibility with our
-calculation code chunk\! Open up a new R script within `hbwater_chla`
-and follow the steps.
-
-First we are going to locate & load the data:
+calculation code chunk\! First we are going to locate & load the data:
 
 ``` r
 drive_find(pattern = "input data", n_max = 30) #find this data file
@@ -184,16 +194,8 @@ Next, run this function on your file number and save as `chla`, set
 surface area (`sa = TRUE`) for all files after 2020:
 
 ``` r
-chla <- get_chla_data_fr_drive(1, sa = TRUE)
+chla <- get_chla_data_fr_drive(2, sa = TRUE)
 ```
-
-    ## File downloaded:
-
-    ## * 'hbwtr_chla_rfu_2020_corrected.xlsx' <id: 1upnEjjn9tV2HmHWzrN-PuQlx7YOTkYBg>
-
-    ## Saved locally as:
-
-    ## * 'C:\Users\Thell\AppData\Local\Temp\RtmpCiF9dx\file6704cc8275c.xlsx'
 
     ## Warning in read_fun(path = enc2native(normalizePath(path)), sheet_i = sheet, :
     ## Expecting numeric in B263 / R263C2: got 'NA'
@@ -205,13 +207,30 @@ ran & the correct file*
 To check column compatibility (format check), your column names must
 match:
 
+``` r
+#visually inspect columns 
+colnames(chla[["rfu"]])
+```
+
     ## [1] "Flr_sample" "value_rfu"  "short_id"   "SampleID"   "vol_Etoh"  
     ## [6] "run"        "Notes"
 
+``` r
+colnames(chla[["blanks"]])
+```
+
     ## [1] "Flr_sample" "value_rfu"  "SampleID"   "run"
+
+``` r
+colnames(chla[["sa"]])
+```
 
     ## [1] "SampleID"      "side"          "imagej_#"      "length_mm"    
     ## [5] "length_m"      "file_name"     "pixels_per_mm" "notes"
+
+``` r
+colnames(chla[["samplist"]])
+```
 
     ## [1] "DATE"     "WEIR-REP" "SampleID" "notes"
 
@@ -245,7 +264,7 @@ chla[["rfu"]] %>% filter(SampleID %in% dups)
     ## # ... with 7 variables: Flr_sample <chr>, value_rfu <dbl>, short_id <dbl>,
     ## #   SampleID <chr>, vol_Etoh <dbl>, run <chr>, Notes <chr>
 
-This will tell you if any of your samples are mislabeled
+This will tell you if any of your samples are mislabeled:
 
 ``` r
 chla[["rfu"]]$SampleID[which(chla[["rfu"]]$SampleID %notin% chla[["samplist"]]$SampleID)] 
@@ -281,19 +300,20 @@ missing_data_check(2020)
 
 Now your data should have the required columns of a) rfu value, b)
 substrate, c) date, d) weir, and e) sampling ID which will give you
-substrate, date, and weir and we are ready to calculate chla to mg/m^2.
+substrate, date, and weir and we are ready to calculate chla to
+mg/m<sup>2</sup>.
 
-## Step 3: convert from rfu to mg/m^2
+## Step 3: convert from rfu to mg/m<sup>2</sup>
 
-To covert from rfu to mg/m2 we use the following equation:
+To covert from rfu to mg/m<sup>2</sup> we use the following equation:
 
 ![equation 1](raw%20data/equation_image.PNG)
 
-where `RFU` is the raw units (corrected by substracting the average of
+where `RFU` is the raw units (corrected by subtracting the average of
 the blanks), `Slope` is the standard slope (`rfu/(ug/L)`), `V` is the
 volume of ethanol (mL) and `SA` is the surface area (`m^2`).
 
-The following loads the function, which is a functino of the chla\_list
+The following loads the function, which is a function of the chla\_list
 (should be `chla`) and the slope (`slp`):
 
 ``` r

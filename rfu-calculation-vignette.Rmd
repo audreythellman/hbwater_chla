@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction
 
-Converting between chlorophyll-a (chl-a) raw units (rfu) and mg/m*\^2* for the Hubbard Brook Experimental Forest long-term algal record
+Converting between chlorophyll-a (chl-a) raw units (rfu) and mg/m^2^ for the Hubbard Brook Experimental Forest long-term algal record
 
 To do this calculation, you need three five things: 
 
@@ -26,7 +26,13 @@ To do this calculation, you need three five things:
 
 In general, the calculation will first, merge the raw data with the sampling listing. Second, subtract average blank values from each run. Third, calculate chl-a in mg/m2 using the slope of the standard curve, the volume of EtOH, and the surface area of the substrates. 
 
-The first thing we need to do is load all required packages and set our project directory. 
+### Ready to Start?
+*We strongly recommend downloading this code from github* so that you have a copy of the folder structure and source files on your computer. 
+- You can clone this repository through a) [SSP/HTTPS](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories) or b) by downloading a zip folder. If downloading, make sure to put the [hbwater_chla](https://github.com/audreythellman/hbwater_chla) folder where you want it to live on your computer. For example, my `hbwater_chla` folder is a sub-folder within my `_HBEF` research folder on my computer.
+
+Open up a new R script within `hbwater_chla` and follow the steps. We recommend opening the `*.Rproj` file because it will automatically create the correct **working directory** 
+
+Once you have the Rscript open in the hbef_chla project, we can add our packages:
 
 ``` {r setup2, message = F, warning = F}
 
@@ -41,7 +47,7 @@ library(readxl)
 
 ```
 
-Make sure to `install.packages()` that are not loaded onto your machine. Finally, this script uses google drive. Let's authorize `tidyverse` to have access to our files. When prompted, check "see, edit, create, and delete all of your Google Drive files"
+Make sure to `install.packages()` that are not loaded onto your machine. Finally, this script uses Google Drive. Let's authorize `tidyverse` to have access to our files. When prompted, check "see, edit, create, and delete all of your Google Drive files"
 
 ![google drive authentication](raw data/google_drive_auth.PNG)
 
@@ -51,13 +57,13 @@ Check that `googledrive` is properly set-up by running this code:
 drive_find(n_max = 30)
 ```
 
-If it runs, you should get a list of recently opened files on your google drive & their link `id`; this is how we will temporarily download files from google drive to use in our script. 
+If it runs, you should get a list of recently opened files on your Google Drive & their link `id`; this is how we will temporarily download files from Google Drive to use in our script. 
 
-Finally, *we strongly recommend downloading this code from github* so that you have a copy of the folder structure and source files on your computer. You can clone this repository through a) [SSP/HTTPS](https://docs.github.com/en/get-started/getting-started-with-git/about-remote-repositories) or b) by downloading a zip folder. If downloading, make sure to put the [hbwater_chla](https://github.com/audreythellman/hbwater_chla) folder where you want it to live on your computer. For example, my `hbwater_chla` folder is a sub-folder within my `_HBEF` research folder on my computer.   
 
 ## Step 1: manually input data
 
-First, manually clean your data. Three items  are needed for calculation: 
+First, manually clean your data. Five items are needed for calculation: 
+
 1) the rfu data frame
 2) the standard blank data frame
 3) surface area calculations from imageJ
@@ -69,7 +75,7 @@ First, manually clean your data. Three items  are needed for calculation:
 
 We recommend downloading a copy of the data and formatting the new data in the same way (see: [2020 RFU](https://docs.google.com/spreadsheets/d/1upnEjjn9tV2HmHWzrN-PuQlx7YOTkYBg/edit?usp=sharing&ouid=114138765499543876405&rtpof=true&sd=true))
 
-- *Note: each of the different data frames are saved as three different excel sheets     labeled: rfu, blanks, & sa.*
+- *Note: each of the different data frames are saved as three different excel sheets labeled: rfu, blanks, & sa.*
 - *Note: the formatting for this file name is: hbwtr_chla_rfu_YEAR.xlsx*
 
 Re-upload this newly formatted data to the `input data` sub-folder in `1_Algae/Data/` folder. The next steps pull from the google drive uploaded data. 
@@ -78,18 +84,16 @@ Next, you are going to update **your local copy** of `samplinglist_updated.xlsx`
 
 Now that you've:
 
-a) compiled a file with the name `hbwtr_chla_rfu_YEAR.xlsx`
-b) uploaded that file to Google Drive
-c) updated the *local copy* of `samplinglist_updated.xlsx`
+1) compiled a file with the name `hbwtr_chla_rfu_YEAR.xlsx`
+2) uploaded that file to Google Drive
+3) updated the *local copy* of `samplinglist_updated.xlsx`
 
 you are ready to move on to the next steps!
 
 
 ## Step 2: programatically clean data
 
-We are ready to clean our data and check compatibility with our calculation code chunk! Open up a new R script within `hbwater_chla` and follow the steps. 
-
-First we are going to locate & load the data:
+We are ready to clean our data and check compatibility with our calculation code chunk! First we are going to locate & load the data:
 
 ```{r locate data, results = 'hide'}
 drive_find(pattern = "input data", n_max = 30) #find this data file
@@ -162,14 +166,14 @@ get_chla_data_fr_drive <- function(fileno, sa) {
 *This function pulls down the data, formats it, and adds it to the R global environment*
 
 Next, run this function on your file number and save as `chla`, set surface area (`sa = TRUE`) for all files after 2020: 
-```{r function out, results='hide'}
-chla <- get_chla_data_fr_drive(1, sa = TRUE)
+```{r function out, results = 'hide', message = F}
+chla <- get_chla_data_fr_drive(2, sa = TRUE)
 ```
 *The function will tell you what your last date entered is & the file you downloaded. Be sure this is a later date than the last chla value ran & the correct file*
 
 To check column compatibility (format check), your column names must match:
 
-```{r check cols, echo=F}
+```{r check cols}
 #visually inspect columns 
 colnames(chla[["rfu"]])
 colnames(chla[["blanks"]])
@@ -196,7 +200,7 @@ This will help you visually ID columns that are duplicated:
 ```{r mp data}
 chla[["rfu"]] %>% filter(SampleID %in% dups) 
 ```
-This will tell you if any of your samples are mislabeled 
+This will tell you if any of your samples are mislabeled: 
 ```{r mp data2}
 
 chla[["rfu"]]$SampleID[which(chla[["rfu"]]$SampleID %notin% chla[["samplist"]]$SampleID)] 
@@ -222,20 +226,20 @@ missing_data_check(2020)
 
 ```
 
-Now your data should have the required columns of a) rfu value, b) substrate, c) date, d) weir, and e) sampling ID which will give you substrate, date, and weir and we are ready to calculate chla to mg/m^2. 
+Now your data should have the required columns of a) rfu value, b) substrate, c) date, d) weir, and e) sampling ID which will give you substrate, date, and weir and we are ready to calculate chla to mg/m^2^. 
 
-## Step 3: convert from rfu to mg/m^2
+## Step 3: convert from rfu to mg/m^2^
 
-To covert from rfu to mg/m2 we use the following equation: 
+To covert from rfu to mg/m^2^ we use the following equation: 
 
 ![equation 1](raw data/equation_image.PNG)
 ```{r echo = F, include = F}
 ## $$RFU_{corrected} \cdot \frac {Slope}{1000} \cdot \frac {V_{EtOH}}{1000}\cdot \frac {1}{SA}$$
 ```
 
-where `RFU` is the raw units (corrected by substracting the average of the blanks), `Slope` is the standard slope  (`rfu/(ug/L)`), `V` is the volume of ethanol (mL) and `SA` is the surface area (`m^2`). 
+where `RFU` is the raw units (corrected by subtracting the average of the blanks), `Slope` is the standard slope  (`rfu/(ug/L)`), `V` is the volume of ethanol (mL) and `SA` is the surface area (`m^2`). 
 
-The following loads the function, which is a functino of the chla_list (should be `chla`) and the slope (`slp`): 
+The following loads the function, which is a function of the chla_list (should be `chla`) and the slope (`slp`): 
 ```{r get function}
 rfu_to_mgm2 <- function(chla_list, slp) {
 
