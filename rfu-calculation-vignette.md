@@ -237,7 +237,7 @@ colnames(chla[["samplist"]])
 *If the columns don’t match, manually change them and re-add your files
 to **Google Drive***
 
-## Step 2: check for errors and duplicates
+## Step 3: check for errors and duplicates
 
 In the next steps, we will:
 
@@ -303,7 +303,7 @@ substrate, c) date, d) weir, and e) sampling ID which will give you
 substrate, date, and weir and we are ready to calculate chla to
 mg/m<sup>2</sup>.
 
-## Step 3: convert from rfu to mg/m<sup>2</sup>
+## Step 4: convert from rfu to mg/m<sup>2</sup>
 
 To covert from rfu to mg/m<sup>2</sup> we use the following equation:
 
@@ -419,7 +419,7 @@ hbwtr_chla_mgm2_2020 <- rfu_to_mgm2(chla_list = chla, slp = 0.2317)
 Now, we can save a “tidy” output version of this data, keeping only the
 parts that we need:
 
-## Step 4: save the data output
+## Step 5: save the data output
 
 For all output data, we will be using the filename
 `hbwtr_chla_mgm2_YEAR.csv`
