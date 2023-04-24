@@ -170,7 +170,7 @@ get_chla_data_fr_drive <- function(fileno, sa) {
 
 Next, run this function on your file number and save as `chla`, set surface area (`sa = TRUE`) for all files after 2020: 
 ```{r function out, results = 'hide', message = F}
-chla <- get_chla_data_fr_drive(8, sa = TRUE)
+chla <- get_chla_data_fr_drive(2, sa = TRUE)
 ```
 *The function will tell you what your last date entered is & the file you downloaded. Be sure this is a later date than the last chl-a value ran & the correct file*
 
