@@ -1,7 +1,7 @@
 ---
 title: "rfu-calculation-vignette"
 author: "Audrey Thellman"
-date: "10/20/2021"
+date: "04/24/2021"
 output: rmarkdown::github_document
 pdf_document: default
 ---
@@ -24,7 +24,7 @@ To do this calculation, you need three five things:
 * The blanks measured for each run 
 * the surface areas of the substrates
 
-In general, the calculation will first, merge the raw data with the sampling listing. Second, subtract average blank values from each run. Third, calculate chl-a in mg/m2 using the slope of the standard curve, the volume of EtOH, and the surface area of the substrates. 
+In general, the calculation will, first, merge the raw data with the sampling listing. Second, subtract average blank values from each run. Third, calculate chl-a in mg/m2 using the slope of the standard curve, the volume of EtOH, and the surface area of the substrates. 
 
 ### Ready to Start?
 *We strongly recommend downloading this code from github* so that you have a copy of the folder structure and source files on your computer. 
@@ -71,6 +71,7 @@ First, manually clean your data. Five items are needed for calculation:
 5) the sample list. 
 
 - *Note: the HB WaTER slope from the 2018 standard curve is: 0.2317*
+- *Note: the HB WaTER slope information for 2022+ can be found at `data\`*
 - *Note: the raw data for each year are located in `1_Algae/Data/raw data/Chla- raw run files`*
 
 We recommend downloading a copy of the data and formatting the new data in the same way (see: [2020 RFU](https://docs.google.com/spreadsheets/d/1upnEjjn9tV2HmHWzrN-PuQlx7YOTkYBg/edit?usp=sharing&ouid=114138765499543876405&rtpof=true&sd=true))
@@ -93,18 +94,20 @@ you are ready to move on to the next steps!
 
 ## Step 2: programatically clean data
 
-We are ready to clean our data and check compatibility with our calculation code chunk! First we are going to locate & load the data:
+We are ready to clean our data and check compatibility with our calculation code chunk! First we are going to locate & load the data. This code chunk finds the shared drive ID: `shared_drive_find(n_max = 30)`. Because I only have one shared drive, I entered `1` in the `shared_ID` arguement. 
 
 ```{r locate data, results = 'hide'}
-drive_find(pattern = "input data", n_max = 30) #find this data file
+shared_drive_find(n_max = 30)
+shared_ID <- shared_drive_find(n_max = 30)[1,]$id
 
+drive_find(pattern = "input data", n_max = 30, shared_drive = shared_ID) #find this data file
 ```
 This above code chunk will give you the `id` of the `input data` folder that we will use to extract `hbwtr_chla_rfu_YEAR.xlsx` from Google Drive. 
 
 Copy this `id` to the clipboard and run the following code: 
 
 ```{r locate data 2, include = F}
-(input_data_folder <- drive_ls(as_id("1bKuciPhW6x6svEJLHAvcESvMyXbFmbh6"))) #this is the ID for the folder
+(input_data_folder <- drive_ls(as_id("1ibElj1bAwB0Nv_XfCv7HL3K6vg1g7mkG"))) #this is the ID for the folder
 ```
 
 ```
@@ -167,9 +170,9 @@ get_chla_data_fr_drive <- function(fileno, sa) {
 
 Next, run this function on your file number and save as `chla`, set surface area (`sa = TRUE`) for all files after 2020: 
 ```{r function out, results = 'hide', message = F}
-chla <- get_chla_data_fr_drive(2, sa = TRUE)
+chla <- get_chla_data_fr_drive(8, sa = TRUE)
 ```
-*The function will tell you what your last date entered is & the file you downloaded. Be sure this is a later date than the last chla value ran & the correct file*
+*The function will tell you what your last date entered is & the file you downloaded. Be sure this is a later date than the last chl-a value ran & the correct file*
 
 To check column compatibility (format check), your column names must match:
 
@@ -241,14 +244,20 @@ where `RFU` is the raw units (corrected by subtracting the average of the blanks
 
 The following loads the function, which is a function of the chla_list (should be `chla`) and the slope (`slp`): 
 ```{r get function}
-rfu_to_mgm2 <- function(chla_list, slp) {
+rfu_to_mgm2 <- function(chla_list, slp_id) {
+  
+  #remember to comment out 
+  #chla_list <- chla
+  #slp_id <- "Duke2023"
+  
+  slp_summary <- read_excel("./raw data/chla_standardcurve_summary.xlsx")
 
       #then remove duplicates
       dups <- chla[["rfu"]]$SampleID[which(duplicated(chla[["rfu"]]$SampleID))] 
       #this will identify values that are duplicated 
       #chla_duplicated <- chla[["rfu"]] %>% filter(SampleID %in% dups) 
       #this will help you visually ID columns
-      chla_filtered <- chla[["rfu"]] %>% filter(SampleID %notin% dups)
+      chla_filtered <- chla[["rfu"]] %>% filter(SampleID %notin% dups) #remove duplicates
       
       chla_wID <- left_join(chla_filtered, chla[["samplist"]], by = "SampleID")
       chla_wID$weir <- as.factor(substr(chla_wID$`WEIR-REP`, 1, 2))
@@ -269,7 +278,8 @@ rfu_to_mgm2 <- function(chla_list, slp) {
         moss_sa <- chla[["sa"]] %>% filter(subs_code == "M_s")
         mosstile_sa <- chla[["sa"]] %>% filter(subs_code == "MT")
         chla_wsurface <- chla_wID
-        chla_wsurface$surface_area <- ifelse(chla_wID$rep == "M", moss_sa$surface_area_m2, 
+        chla_wsurface$surface_area <- ifelse(chla_wID$rep == "M",
+                                             moss_sa$surface_area_m2, 
                                              ifelse(chla_wID$rep == "MT", 
                                                     mosstile_sa$surface_area_m2, NA))
       }
@@ -277,25 +287,17 @@ rfu_to_mgm2 <- function(chla_list, slp) {
       if (year(chla_wID$DATE)[1] == 2019) {
         moss_sa <- chla[["sa"]] %>% filter(subs_code== "M_b")
         chla_wsurface <- chla_wID
-        chla_wsurface$surface_area <- ifelse(chla_wID$rep == "M", moss_sa$surface_area_m2, NA)
+        chla_wsurface$surface_area <- ifelse(chla_wID$rep == "M",
+                                             moss_sa$surface_area_m2, NA)
       }
       
       chla_wsurface$surface_area <- ifelse(chla_wsurface$rep == "T", 
                                            0.001078121, chla_wsurface$surface_area)
       
-      ## internal function 
-      int_function <- function(rfu, vol, run, sa) {
-        blankmeans <- 
-          chla[["blanks"]] %>% group_by(run) %>% summarise(blank_mean = mean(value_rfu, na.rm = T))
-        rfu_cor1 <- rfu - blankmeans$blank_mean[which(blankmeans$run == run)] 
-        rfu_cor <- ifelse(rfu_cor1 < 0, 0, rfu_cor1)
-        
-        mg_m2 <- rfu_cor*slp*(1/1000)*(vol/1000)*(1/sa) #1000's for conversion factors 
-        return(mg_m2)
-        
-      }
       
-      chla_wsurface$notes_fromRFU <- ifelse(is.na(chla_wsurface$notes) & is.na(chla_wsurface$Notes), NA, 
+      
+      chla_wsurface$notes_fromRFU <- 
+        ifelse(is.na(chla_wsurface$notes) & is.na(chla_wsurface$Notes), NA, 
              ifelse(!is.na(chla_wsurface$notes) & !is.na(chla_wsurface$Notes), 
                     paste0(chla_wsurface$Notes,"; ",chla_wsurface$notes), 
                     ifelse(is.na(chla_wsurface$notes) & !is.na(chla_wsurface$Notes), 
@@ -308,14 +310,50 @@ rfu_to_mgm2 <- function(chla_list, slp) {
       
       chla_mgm2$surface_area <- 
         ifelse(is.na(chla_mgm2$surface_area), 
-               mean(chla_mgm2$surface_area[chla_mgm2$rep %in% c("M", "WM", "WM-zero")], na.rm = T), 
+               mean(chla_mgm2$surface_area[chla_mgm2$rep 
+                                           %in% c("M", "WM", "WM-zero")], na.rm = T), 
                                        chla_mgm2$surface_area)
+      #HERE ADD ABOVE DETECTION STATMENT TO NOTES_CALCULATION
+      #HERE ADD IF STATEMENTS
+      
+      subset_slps <- slp_summary[slp_summary$slp_id == slp_id,]
+      rfu_cutoff <- subset_slps[subset_slps$slopetype == "cutoff",]$slope
+      rfu_abvdetection <- subset_slps[subset_slps$slopetype == "above_detection",]$slope
+      low_slp <- subset_slps[subset_slps$slopetype == "low_zero",]$slope
+      high_slp <- subset_slps[subset_slps$slopetype == "high_zero",]$slope
+      
+      chla_mgm2$slp <- ifelse(chla_mgm2$value_rfu <= rfu_cutoff, low_slp, high_slp)
+      
+      #add warning to calc-notes
+      chla_mgm2$notes_calculation <- ifelse(is.na(chla_mgm2$notes_calculation) & 
+               chla_mgm2$value_rfu > rfu_abvdetection, 
+             paste0("FLAG: this sample is above detection limits for ", slp_id),
+             ifelse(!is.na(chla_mgm2$notes_calculation) & 
+                      chla_mgm2$value_rfu > rfu_abvdetection,
+             paste0(chla_mgm2$notes_calculation,
+                    "; FLAG: this sample is above detection limits for ",
+                    slp_id), chla_mgm2$notes_calculation))
+      
+      
+      ## internal function 
+      int_function <- function(rfu, vol, run, sa, slp) {
+        blankmeans <- 
+          chla[["blanks"]] %>% group_by(run) %>% 
+          summarise(blank_mean = mean(value_rfu, na.rm = T))
+        rfu_cor1 <- rfu - blankmeans$blank_mean[which(blankmeans$run == run)] 
+        rfu_cor <- ifelse(rfu_cor1 < 0, 0, rfu_cor1)
+        
+        mg_m2 <- rfu_cor*slp*(1/1000)*(vol/1000)*(1/sa) #1000's for conversion factors 
+        return(mg_m2)
+        
+      }
       
       chla_mgm2$value_mgm2 <- mapply(int_function, 
                                      chla_mgm2$value_rfu, 
                                      chla_mgm2$vol_Etoh, 
                                      chla_mgm2$run, 
-                                     chla_mgm2$surface_area)
+                                     chla_mgm2$surface_area, 
+                                     chla_mgm2$slp)
  
       if(sum(!is.na(chla_mgm2$notes_calculation)) > 1){
         warning("Some of the surface areas were replaced 
@@ -330,7 +368,7 @@ rfu_to_mgm2 <- function(chla_list, slp) {
 
 Next, we can run the function on the 2020 example data. 
 ```{r run function}
-hbwtr_chla_mgm2_2020 <- rfu_to_mgm2(chla_list = chla, slp = 0.2317)
+hbwtr_chla_mgm2_2020 <- rfu_to_mgm2(chla_list = chla, slp_id = "Cary2022")
 
 ```
 
