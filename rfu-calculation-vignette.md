@@ -84,7 +84,7 @@ First, manually clean your data. Five items are needed for calculation:
 
 - *Note: the HB WaTER slope from the 2018 standard curve is: 0.2317*
 - *Note: the HB WaTER slope information for 2022+ can be found at
-  `data\`*
+  `raw data/chla_standardcurve_summary.xlsx`*
 - *Note: the raw data for each year are located in
   `1_Algae/Data/raw data/Chla- raw run files`*
 
@@ -119,7 +119,7 @@ We are ready to clean our data and check compatibility with our
 calculation code chunk! First we are going to locate & load the data.
 This code chunk finds the shared drive ID:
 `shared_drive_find(n_max = 30)`. Because I only have one shared drive, I
-entered `1` in the `shared_ID` arguement.
+entered `1` in the `shared_ID` argument.
 
 ``` r
 shared_drive_find(n_max = 30)
@@ -138,7 +138,7 @@ Copy this `id` to the clipboard and run the following code:
 
 From here, you will get a list of the input files. Remember the number
 of the file you are going to clean. In this case, we are going to clean
-file \#1 corresponding to 2020 data.
+file \#2 corresponding to 2020 data.
 
 To clean the data, run this chunk of code:
 
@@ -317,7 +317,8 @@ the blanks), `Slope` is the standard slope (`rfu/(ug/L)`), `V` is the
 volume of ethanol (mL) and `SA` is the surface area (`m^2`).
 
 The following loads the function, which is a function of the chla_list
-(should be `chla`) and the slope (`slp`):
+(should be `chla`) and the slope, found using the standard curve or
+slope ID (`slp_id`):
 
 ``` r
 rfu_to_mgm2 <- function(chla_list, slp_id) {
