@@ -72,7 +72,7 @@ First, manually clean your data. Five items are needed for calculation:
 5) the sample list. 
 
 - *Note: the HB WaTER slope from the 2018 standard curve is: 0.2317*
-- *Note: the HB WaTER slope information for 2022+ can be found at `data\`*
+- *Note: the HB WaTER slope information for 2022+ can be found at `raw data/chla_standardcurve_summary.xlsx`*
 - *Note: the raw data for each year are located in `1_Algae/Data/raw data/Chla- raw run files`*
 
 We recommend downloading a copy of the data and formatting the new data in the same way (see: [2020 RFU](https://docs.google.com/spreadsheets/d/1upnEjjn9tV2HmHWzrN-PuQlx7YOTkYBg/edit?usp=sharing&ouid=114138765499543876405&rtpof=true&sd=true))
@@ -95,7 +95,7 @@ you are ready to move on to the next steps!
 
 ## Step 2: programatically clean data
 
-We are ready to clean our data and check compatibility with our calculation code chunk! First we are going to locate & load the data. This code chunk finds the shared drive ID: `shared_drive_find(n_max = 30)`. Because I only have one shared drive, I entered `1` in the `shared_ID` arguement. 
+We are ready to clean our data and check compatibility with our calculation code chunk! First we are going to locate & load the data. This code chunk finds the shared drive ID: `shared_drive_find(n_max = 30)`. Because I only have one shared drive, I entered `1` in the `shared_ID` argument. 
 
 ```{r locate data, results = 'hide'}
 shared_drive_find(n_max = 30)
@@ -115,7 +115,7 @@ Copy this `id` to the clipboard and run the following code:
   (input_data_folder <- drive_ls(as_id("INSERT COPIED id IN QUOTES")))
 
 ```
-From here, you will get a list of the input files. Remember the number of the file you are going to clean. In this case, we are going to clean file #1 corresponding to 2020 data. 
+From here, you will get a list of the input files. Remember the number of the file you are going to clean. In this case, we are going to clean file #2 corresponding to 2020 data. 
 
 To clean the data, run this chunk of code: 
 
@@ -243,7 +243,7 @@ To covert from rfu to mg/m^2^ we use the following equation:
 
 where `RFU` is the raw units (corrected by subtracting the average of the blanks), `Slope` is the standard slope  (`rfu/(ug/L)`), `V` is the volume of ethanol (mL) and `SA` is the surface area (`m^2`). 
 
-The following loads the function, which is a function of the chla_list (should be `chla`) and the slope (`slp`): 
+The following loads the function, which is a function of the chla_list (should be `chla`) and the slope, found using the standard curve or slope ID (`slp_id`): 
 ```{r get function}
 rfu_to_mgm2 <- function(chla_list, slp_id) {
   
