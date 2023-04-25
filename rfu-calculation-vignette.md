@@ -50,6 +50,7 @@ library(googledrive)
 library(tidyverse)
 library(lubridate)
 library(readxl)
+library(data.table)
 
 `%notin%` <- Negate(`%in%`)
 ```
@@ -388,14 +389,13 @@ rfu_to_mgm2 <- function(chla_list, slp_id) {
                mean(chla_mgm2$surface_area[chla_mgm2$rep 
                                            %in% c("M", "WM", "WM-zero")], na.rm = T), 
                                        chla_mgm2$surface_area)
-      #HERE ADD ABOVE DETECTION STATMENT TO NOTES_CALCULATION
-      #HERE ADD IF STATEMENTS
       
-      subset_slps <- slp_summary[slp_summary$slp_id == slp_id,]
-      rfu_cutoff <- subset_slps[subset_slps$slopetype == "cutoff",]$slope
-      rfu_abvdetection <- subset_slps[subset_slps$slopetype == "above_detection",]$slope
-      low_slp <- subset_slps[subset_slps$slopetype == "low_zero",]$slope
-      high_slp <- subset_slps[subset_slps$slopetype == "high_zero",]$slope
+      #added in slope information from the spinach slope at Duke and Cary Inst. 2022-23
+      subset_slps <- slp_summary[slp_summary$slp_id == slp_id,] # data frame of slope info
+      rfu_cutoff <- subset_slps[subset_slps$slopetype == "cutoff",]$slope #rfu switching point from H to L
+      rfu_abvdetection <- subset_slps[subset_slps$slopetype == "above_detection",]$slope #rfu above detect
+      low_slp <- subset_slps[subset_slps$slopetype == "low_zero",]$slope #low standard slope
+      high_slp <- subset_slps[subset_slps$slopetype == "high_zero",]$slope #high standard slope
       
       chla_mgm2$slp <- ifelse(chla_mgm2$value_rfu <= rfu_cutoff, low_slp, high_slp)
       
@@ -462,8 +462,33 @@ For all output data, we will be using the filename
 `hbwtr_chla_mgm2_YEAR.csv`
 
 ``` r
-write.csv(hbwtr_chla_mgm2_2020, "./final data/hbwtr_chla_mgm2_2020.csv", row.names = F)
+write.csv(hbwtr_chla_mgm2_2020, "./final data/hbwtr_chla_mgm2_YEAR.csv", row.names = F)
 ```
 
 Finally, upload this data to Google Drive in the
 `1_Algae/Data/final data` folder! All done :)
+
+## Step 5: optional - visualize the data
+
+``` r
+l <- list.files(path = "./final data/", pattern = "2020curve", full.names = T) 
+all_chla_old <- rbindlist(lapply(l, read.csv))
+
+l2 <- list.files(path = "./final data/", pattern = "20", full.names = T) 
+l3 <- l2[l2 %notin% l]
+all_chla_new <- rbindlist(lapply(l3, read.csv))
+
+ggplot(data = all_chla_old %>% filter(rep %in% c("M", "T", "WM"))) + geom_point(aes(x = DATE, y = value_mgm2, color = weir)) + facet_grid(~rep)
+```
+
+    ## Warning: Removed 2 rows containing missing values (`geom_point()`).
+
+![](rfu-calculation-vignette_files/figure-gfm/viz-1.png)<!-- -->
+
+``` r
+ggplot(data = all_chla_new %>% filter(rep %in% c("M", "T", "WM"))) + geom_point(aes(x = DATE, y = value_mgm2, color = weir)) + facet_grid(~rep)
+```
+
+    ## Warning: Removed 2 rows containing missing values (`geom_point()`).
+
+![](rfu-calculation-vignette_files/figure-gfm/viz-2.png)<!-- -->
