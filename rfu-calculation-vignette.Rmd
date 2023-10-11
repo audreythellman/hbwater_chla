@@ -44,6 +44,7 @@ library(tidyverse)
 library(lubridate)
 library(readxl)
 library(data.table)
+library(viridis)
 
 `%notin%` <- Negate(`%in%`)
 
@@ -215,7 +216,7 @@ If any of the above show as duplicates, try to resolve this issue manually in Go
 
 Next, check if there are any missing data using the following function. Input the year that you are checking in the second line (e.g. if `hbwtr_chla_rfu_2020.xlsx` then type `2020`)
 
-```{r missing data}
+```{r missing data, eval = F}
 
 missing_data_check <- function(year) {
  # year <- 2020
@@ -246,11 +247,11 @@ where `RFU` is the raw units (corrected by subtracting the average of the blanks
 
 The following loads the function, which is a function of the chla_list (should be `chla`) and the slope, found using the standard curve or slope ID (`slp_id`): 
 ```{r get function}
-#rfu_to_mgm2 <- function(chla_list, slp_id) {
+rfu_to_mgm2 <- function(chla_list, slp_id) {
   
   #remember to comment out 
-  chla_list <- chla
-  slp_id <- "Duke2023"
+  # chla_list <- chla
+  # slp_id <- "Duke2023"
   
   slp_summary <- read_excel("./raw data/chla_standardcurve_summary.xlsx")
 
@@ -341,12 +342,12 @@ The following loads the function, which is a function of the chla_list (should b
       ## internal function 
       int_function <- function(rfu, vol, run, sa, slp, int) {
         #remember to comment out 
-        rfu = chla_mgm2$value_rfu[258]
-        vol = chla_mgm2$vol_Etoh[258]
-        run =  chla_mgm2$run[258]
-        sa = chla_mgm2$surface_area[258]
-        slp = chla_mgm2$slp[258]
-        int = chla_mgm2$int[258]
+        # rfu = chla_mgm2$value_rfu[258]
+        # vol = chla_mgm2$vol_Etoh[258]
+        # run =  chla_mgm2$run[258]
+        # sa = chla_mgm2$surface_area[258]
+        # slp = chla_mgm2$slp[258]
+        # int = chla_mgm2$int[258]
         ##
         
         blankmeans <- 
@@ -399,7 +400,7 @@ Now, we can save a "tidy" output version of this data, keeping only the parts th
 
 For all output data, we will be using the filename `hbwtr_chla_mgm2_YEAR.csv` 
 
-``` {r save tidy data}
+``` {r save tidy data, eval = F}
 write.csv(hbwtr_chla_mgm2_2020, "./final data/hbwtr_chla_mgm2_YEAR.csv", row.names = F)
 ```
 
@@ -415,8 +416,6 @@ l2 <- list.files(path = "./final data/", pattern = "20", full.names = T)
 l3 <- l2[l2 %notin% l]
 all_chla_new <- rbindlist(lapply(l3, read.csv))
 
-ggplot(data = all_chla_old %>% filter(rep %in% c("M", "T", "WM"))) + geom_point(aes(x = DATE, y = value_mgm2, color = weir)) + facet_grid(~rep)
-
-ggplot(data = all_chla_new %>% filter(rep %in% c("M", "T", "WM"))) + geom_point(aes(x = DATE, y = value_mgm2, color = weir)) + facet_grid(~rep)
+ggplot(data = all_chla_new %>% filter(rep %in% c("M", "T", "WM"))) + geom_point(aes(x = as.Date(DATE), y = value_mgm2, color = weir)) + facet_wrap(~rep, ncol = 1) + scale_color_viridis(discrete=TRUE, option = "turbo") + theme_bw() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + scale_x_date(breaks = "1 month", date_labels = "%Y-%b")
 
 ```

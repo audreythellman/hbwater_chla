@@ -3,13 +3,15 @@ rfu-calculation-vignette
 Audrey Thellman
 04/24/2021
 
+add dates & add when to update the samplelist on your local machine
+
 ## Introduction
 
 Converting between chlorophyll-a (chl-a) raw units (rfu) and
 mg/m<sup>2</sup> for the Hubbard Brook Experimental Forest long-term
 algal record
 
-To do this calculation, you need three five things:
+To do this calculation, you need these five things:
 
 - The sample list file (sample ID, sampling date, substrate, and
   watershed, or weir)
@@ -51,6 +53,7 @@ library(tidyverse)
 library(lubridate)
 library(readxl)
 library(data.table)
+library(viridis)
 
 `%notin%` <- Negate(`%in%`)
 ```
@@ -60,7 +63,11 @@ Finally, this script uses Google Drive. Let’s authorize `tidyverse` to
 have access to our files. When prompted, check “see, edit, create, and
 delete all of your Google Drive files”
 
-![google drive authentication](raw%20data/google_drive_auth.PNG)
+<figure>
+<img src="raw%20data/google_drive_auth.PNG"
+alt="google drive authentication" />
+<figcaption aria-hidden="true">google drive authentication</figcaption>
+</figure>
 
 Check that `googledrive` is properly set-up by running this code:
 
@@ -201,8 +208,6 @@ surface area (`sa = TRUE`) for all files after 2020:
 chla <- get_chla_data_fr_drive(1, sa = TRUE)
 ```
 
-    ## Warning: Expecting numeric in B263 / R263C2: got 'NA'
-
 *The function will tell you what your last date entered is & the file
 you downloaded. Be sure this is a later date than the last chl-a value
 ran & the correct file*
@@ -264,7 +269,7 @@ chla[["rfu"]] %>% filter(SampleID %in% dups)
 ```
 
     ## # A tibble: 0 × 7
-    ## # … with 7 variables: Flr_sample <chr>, value_rfu <dbl>, short_id <dbl>,
+    ## # ℹ 7 variables: Flr_sample <chr>, value_rfu <dbl>, short_id <dbl>,
     ## #   SampleID <chr>, vol_Etoh <dbl>, run <chr>, Notes <chr>
 
 This will tell you if any of your samples are mislabeled:
@@ -296,11 +301,6 @@ missing_data_check <- function(year) {
 missing_data_check(2020)
 ```
 
-    ## [1] "CH200013 is missing from the RFU run sheet"
-    ## [2] "CH200014 is missing from the RFU run sheet"
-    ## [3] "CH200497 is missing from the RFU run sheet"
-    ## [4] "CH200498 is missing from the RFU run sheet"
-
 Now your data should have the required columns of a) rfu value, b)
 substrate, c) date, d) weir, and e) sampling ID which will give you
 substrate, date, and weir and we are ready to calculate chla to
@@ -310,7 +310,10 @@ mg/m<sup>2</sup>.
 
 To covert from rfu to mg/m<sup>2</sup> we use the following equation:
 
-![equation 1](raw%20data/equation_image.PNG)
+<figure>
+<img src="raw%20data/equation_image.PNG" alt="equation 1" />
+<figcaption aria-hidden="true">equation 1</figcaption>
+</figure>
 
 where `RFU` is the raw units (corrected by subtracting the average of
 the blanks), `Slope` is the standard slope (`rfu/(ug/L)`), `V` is the
@@ -324,8 +327,8 @@ slope ID (`slp_id`):
 rfu_to_mgm2 <- function(chla_list, slp_id) {
   
   #remember to comment out 
-  #chla_list <- chla
-  #slp_id <- "Duke2023"
+  # chla_list <- chla
+  # slp_id <- "Duke2023"
   
   slp_summary <- read_excel("./raw data/chla_standardcurve_summary.xlsx")
 
@@ -415,13 +418,22 @@ rfu_to_mgm2 <- function(chla_list, slp_id) {
       
       ## internal function 
       int_function <- function(rfu, vol, run, sa, slp, int) {
+        #remember to comment out 
+        # rfu = chla_mgm2$value_rfu[258]
+        # vol = chla_mgm2$vol_Etoh[258]
+        # run =  chla_mgm2$run[258]
+        # sa = chla_mgm2$surface_area[258]
+        # slp = chla_mgm2$slp[258]
+        # int = chla_mgm2$int[258]
+        ##
+        
         blankmeans <- 
           chla[["blanks"]] %>% group_by(run) %>% 
           summarise(blank_mean = mean(value_rfu, na.rm = T))
         rfu_cor1 <- rfu - blankmeans$blank_mean[which(blankmeans$run == run)] 
         rfu_cor <- ifelse(rfu_cor1 < 0, 0, rfu_cor1)
         
-        mg_m2 <- (rfu_cor*slp+int)*(1/1000)*(vol/1000)*(1/sa) #1000's for conversion factors 
+        mg_m2 <- (rfu_cor*slp+int)*(1/1000)*(vol/1000)*(1/sa) #1000's for conversion factors
         return(mg_m2)
         
       }
@@ -433,6 +445,8 @@ rfu_to_mgm2 <- function(chla_list, slp_id) {
                                      chla_mgm2$surface_area, 
                                      chla_mgm2$slp, 
                                      chla_mgm2$int)
+      
+      class(chla_mgm2$value_mgm2)
  
       if(sum(!is.na(chla_mgm2$notes_calculation)) > 1){
         warning("Some of the surface areas were replaced 
@@ -456,6 +470,11 @@ hbwtr_chla_mgm2_2020 <- rfu_to_mgm2(chla_list = chla, slp_id = "Cary2022")
 
     ## Warning in rfu_to_mgm2(chla_list = chla, slp_id = "Cary2022"): All duplicate
     ## values were removed to complete this analysis
+
+If you encounter errors at this step: 1. check if your runs are labeled
+correctly (e.g. “run 2” vs. “run2”) on the sample file and on the blanks
+dataframe 2. ensure your samplelist is updated 3. missing values in rfu
+are `NA` or removed
 
 Now, we can save a “tidy” output version of this data, keeping only the
 parts that we need:
@@ -482,17 +501,9 @@ l2 <- list.files(path = "./final data/", pattern = "20", full.names = T)
 l3 <- l2[l2 %notin% l]
 all_chla_new <- rbindlist(lapply(l3, read.csv))
 
-ggplot(data = all_chla_old %>% filter(rep %in% c("M", "T", "WM"))) + geom_point(aes(x = DATE, y = value_mgm2, color = weir)) + facet_grid(~rep)
+ggplot(data = all_chla_new %>% filter(rep %in% c("M", "T", "WM"))) + geom_point(aes(x = as.Date(DATE), y = value_mgm2, color = weir)) + facet_wrap(~rep, ncol = 1) + scale_color_viridis(discrete=TRUE, option = "turbo") + theme_bw() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + scale_x_date(breaks = "1 month", date_labels = "%Y-%b")
 ```
 
     ## Warning: Removed 2 rows containing missing values (`geom_point()`).
 
 ![](rfu-calculation-vignette_files/figure-gfm/viz-1.png)<!-- -->
-
-``` r
-ggplot(data = all_chla_new %>% filter(rep %in% c("M", "T", "WM"))) + geom_point(aes(x = DATE, y = value_mgm2, color = weir)) + facet_grid(~rep)
-```
-
-    ## Warning: Removed 2 rows containing missing values (`geom_point()`).
-
-![](rfu-calculation-vignette_files/figure-gfm/viz-2.png)<!-- -->
