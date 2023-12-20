@@ -1,4 +1,4 @@
-# HBWaTER choropyll-a processing for algae data
+# HBWaTER chlorophyll-a processing for algae data
 Converting chlorophyll-a measurements in raw florescence units (rfu) to mg/m<sup>2</sup>
 
 This repository is for the Hubbard Brook Experimental Forest (HBEF) long-term stream ecology record: Algae (2018-present). 
