@@ -7,7 +7,7 @@ sandbox/
 final data/
 figures/
 raw data/chla_data/
-demo/
 hbwtr_chla_mgm2_2022.csv
+rfu_wvol.csv
 
 #ignore these files 

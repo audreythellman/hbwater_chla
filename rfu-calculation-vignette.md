@@ -1,7 +1,7 @@
 rfu-calculation-vignette
 ================
 Audrey Thellman
-04/24/2021
+12/20/2023
 
 add dates & add when to update the samplelist on your local machine
 
@@ -13,18 +13,19 @@ algal record
 
 To do this calculation, you need these five things:
 
-- The sample list file (sample ID, sampling date, substrate, and
-  watershed, or weir)
-- The raw chl-a units (rfu) file with: a) rfu, b) volume of etoh, c)
-  sample ID, and d) chla run number
-- The standard curve slope
-- The blanks measured for each run
+- The `samplinglist_updated.xlsx` file (sample ID, sampling date,
+  substrate, and watershed, or weir)
+- The raw chl-a units (rfu) file with: a) rfu, b) volume of EtOH, c)
+  sample ID, and d) chl-a run number
+- The standard curve slope ID and information in
+  `chla_standardcurve_summary.csv`
 - the surface areas of the substrates
 
 In general, the calculation will, first, merge the raw data with the
-sampling listing. Second, subtract average blank values from each run.
-Third, calculate chl-a in mg/m2 using the slope of the standard curve,
-the volume of EtOH, and the surface area of the substrates.
+sample listing file that contains IDs. Second, it will subtract average
+blank values from each run. Third, it will calculate chl-a in
+mg/m<sup>2</sup> using the slope of the standard curve, the volume of
+EtOH, and the surface area of the substrates.
 
 ### Ready to Start?
 
@@ -42,8 +43,8 @@ Open up a new R script within `hbwater_chla` and follow the steps. We
 recommend opening the `*.Rproj` file because it will automatically
 create the correct **working directory**
 
-Once you have the Rscript open in the hbef_chla project, we can add our
-packages:
+Once you have the Rscript open in the hbef_chla project, we can load or
+download our packages:
 
 ``` r
 # add packages 
@@ -89,9 +90,10 @@ First, manually clean your data. Five items are needed for calculation:
 4)  a slope estimate
 5)  the sample list.
 
-- *Note: the HB WaTER slope from the 2018 standard curve is: 0.2317*
-- *Note: the HB WaTER slope information for 2022+ can be found at
-  `raw data/chla_standardcurve_summary.xlsx`*
+- ~~*Note: the HB WaTER slope from the 2018 standard curve is: 0.2317*~~
+  \[discontinued\]
+- *Note: the HB WaTER slope information for samples run in 2019+ can be
+  found at `raw data/chla_standardcurve_summary.xlsx`*
 - *Note: the raw data for each year are located in
   `1_Algae/Data/raw data/Chla- raw run files`*
 
@@ -99,12 +101,17 @@ We recommend downloading a copy of the data and formatting the new data
 in the same way (see: [2020
 RFU](https://docs.google.com/spreadsheets/d/1upnEjjn9tV2HmHWzrN-PuQlx7YOTkYBg/edit?usp=sharing&ouid=114138765499543876405&rtpof=true&sd=true))
 
+If you are not a HBWaTER user, use the raw file in the `demo/` folder
+and skip to **STEP 2**. To use the function as is, we recommend
+uploading this demo file to Google Drive. Otherwise, change part of the
+`get_chla_data_fr_drive` function.
+
 - *Note: each of the different data frames are saved as three different
   excel sheets labeled: rfu, blanks, & sa.*
 - *Note: the formatting for this file name is: hbwtr_chla_rfu_YEAR.xlsx*
 
 Re-upload this newly formatted data to the `input data` sub-folder in
-`1_Algae/Data/` folder. The next steps pull from the google drive
+`1_Algae/Data/` folder. The next steps pull from the Google Drive
 uploaded data.
 
 Next, you are going to update **your local copy** of
@@ -145,7 +152,7 @@ Copy this `id` to the clipboard and run the following code:
 
 From here, you will get a list of the input files. Remember the number
 of the file you are going to clean. In this case, we are going to clean
-file \#2 corresponding to 2020 data.
+file \#2 corresponding to 2020 demo data.
 
 To clean the data, run this chunk of code:
 
@@ -243,7 +250,8 @@ colnames(chla[["samplist"]])
     ## [1] "DATE"     "WEIR-REP" "SampleID" "notes"
 
 *If the columns don’t match, manually change them and re-add your files
-to **Google Drive***
+to **Google Drive**; the Notes should be capital in file 1, and notes
+should be lowercase in file 3 and 4*
 
 ## Step 3: check for errors and duplicates
 
@@ -285,7 +293,8 @@ manually in Google Drive and restart from **Step 2**.
 
 Next, check if there are any missing data using the following function.
 Input the year that you are checking in the second line (e.g. if
-`hbwtr_chla_rfu_2020.xlsx` then type `2020`)
+`hbwtr_chla_rfu_2020.xlsx` then type `2020`). The `demo` data is from
+2021.
 
 ``` r
 missing_data_check <- function(year) {
@@ -298,7 +307,7 @@ missing_data_check <- function(year) {
               "is missing from the RFU run sheet"))
 }
 
-missing_data_check(2020)
+missing_data_check(2021) #the demo is missing data, so there will be a lot of missing data here; but complete years should have few instances of missing data
 ```
 
 Now your data should have the required columns of a) rfu value, b)
@@ -459,21 +468,45 @@ rfu_to_mgm2 <- function(chla_list, slp_id) {
 }
 ```
 
-Next, we can run the function on the 2020 example data.
+**IMPORTANT** you will be choosing which slope to use in the next step.
+Here is a review of the different standard curve slopes we have
+available:
+
+| slp_id      | location | machine           | slopetype       | slope   | intercept | R2    |
+|-------------|----------|-------------------|-----------------|---------|-----------|-------|
+| Duke2023    | Duke     | CassarTriology    | low_zero        | 0.8118  | 0         | 0.995 |
+| Duke2023    | Duke     | CassarTriology    | high_full       | 1.406   | -707.27   | 0.96  |
+| Duke2023    | Duke     | CassarTriology    | cutoff          | 1245    |           |       |
+| Duke2023    | Duke     | CassarTriology    | above_detection | 3547.77 |           |       |
+| Cary2022    | Cary     | CaryTrilogy       | low_zero        | 0.26    | 0         |       |
+| Cary2022    | Cary     | CaryTrilogy       | high_full       | 0.515   | -1340.12  |       |
+| Cary2022    | Cary     | CaryTrilogy       | cutoff          | 5203    |           |       |
+| Cary2022    | Cary     | CaryTrilogy       | above_detection | 9716.41 |           |       |
+| DukeAug2023 | Duke     | BernhardtTriology | low_zero        | 0.2351  | 0         | 0.995 |
+| DukeAug2023 | Duke     | BernhardtTriology | high_full       | 0.437   | -877      | 0.96  |
+| DukeAug2023 | Duke     | BernhardtTriology | cutoff          | 3977.04 |           |       |
+| DukeAug2023 | Duke     | BernhardtTriology | above_detection | 10661.8 |           |       |
+
+Samples from 2018 to 2021 were run on the Cary2022 slope, samples in
+2022+ are run on subsequent `BernhardtTrilogy` slopes. For example, 2022
+samples were run on the DukeAug2023 slope. The `low_zero` slopetype
+refers to the low slope (0 - 1000 ug/L chl-a forced through zero), while
+the `high_full` slopetype refers to the high slope (1000 ug/L - 4000
+ug/L chl-a). The `cutoff` value is the rfu value at which above this
+value, the high slope is applied. the `above detection` value is the rfu
+value where the sample exceeds 4000 ug/L and is deemed above detection.
+Note that these above detection chl-a values will still be calculated,
+but a flag will appear.
+
+Next, we can run the function on the 2020 example data:
 
 ``` r
-hbwtr_chla_mgm2_2020 <- rfu_to_mgm2(chla_list = chla, slp_id = "Cary2022")
+hbwtr_chla_mgm2_demo <- rfu_to_mgm2(chla_list = chla, slp_id = "Cary2022")
 ```
-
-    ## Warning in rfu_to_mgm2(chla_list = chla, slp_id = "Cary2022"): Some of the surface areas were replaced 
-    ##                 with the average moss SA; see notes_calculation
-
-    ## Warning in rfu_to_mgm2(chla_list = chla, slp_id = "Cary2022"): All duplicate
-    ## values were removed to complete this analysis
 
 If you encounter errors at this step: 1. check if your runs are labeled
 correctly (e.g. “run 2” vs. “run2”) on the sample file and on the blanks
-dataframe 2. ensure your samplelist is updated 3. missing values in rfu
+data frame 2. ensure your samplelist is updated 3. missing values in rfu
 are `NA` or removed
 
 Now, we can save a “tidy” output version of this data, keeping only the
@@ -485,7 +518,7 @@ For all output data, we will be using the filename
 `hbwtr_chla_mgm2_YEAR.csv`
 
 ``` r
-write.csv(hbwtr_chla_mgm2_2020, "./final data/hbwtr_chla_mgm2_YEAR.csv", row.names = F)
+write.csv(hbwtr_chla_mgm2_demo, "./final data/hbwtr_chla_mgm2_YEAR.csv", row.names = F)
 ```
 
 Finally, upload this data to Google Drive in the
@@ -499,11 +532,28 @@ all_chla_old <- rbindlist(lapply(l, read.csv))
 
 l2 <- list.files(path = "./final data/", pattern = "20", full.names = T) 
 l3 <- l2[l2 %notin% l]
-all_chla_new <- rbindlist(lapply(l3, read.csv))
+l4 <- l3[-grep(pattern = "-",l3)]
+
+all_chla_new <- rbindlist(lapply(l4, read.csv))
+
 
 ggplot(data = all_chla_new %>% filter(rep %in% c("M", "T", "WM"))) + geom_point(aes(x = as.Date(DATE), y = value_mgm2, color = weir)) + facet_wrap(~rep, ncol = 1) + scale_color_viridis(discrete=TRUE, option = "turbo") + theme_bw() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + scale_x_date(breaks = "1 month", date_labels = "%Y-%b")
 ```
 
-    ## Warning: Removed 2 rows containing missing values (`geom_point()`).
+## Step 6: only before you add to EDI
 
-![](rfu-calculation-vignette_files/figure-gfm/viz-1.png)<!-- -->
+Download all of the final data and append this year’s data:
+
+``` r
+l <- list.files(path = "./final data/", pattern = "2020curve", full.names = T) 
+all_chla_old <- rbindlist(lapply(l, read.csv))
+
+l2 <- list.files(path = "./final data/", pattern = "20", full.names = T) 
+l3 <- l2[l2 %notin% l]
+all_chla_new <- rbindlist(lapply(l3, read.csv))
+
+all_chla_new$value_mgm2 <- signif(all_chla_new$value_mgm2,6) #round #s to max significant digits based on fluorometer significant figures 
+
+write.csv(all_chla_new, 
+          paste0("./final data/hbwtr_chla_mgm2_",min(year(all_chla_new$DATE)),"-",max(year(all_chla_new$DATE)),".csv"))
+```
