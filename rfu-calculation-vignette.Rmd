@@ -419,3 +419,22 @@ all_chla_new <- rbindlist(lapply(l3, read.csv))
 ggplot(data = all_chla_new %>% filter(rep %in% c("M", "T", "WM"))) + geom_point(aes(x = as.Date(DATE), y = value_mgm2, color = weir)) + facet_wrap(~rep, ncol = 1) + scale_color_viridis(discrete=TRUE, option = "turbo") + theme_bw() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + scale_x_date(breaks = "1 month", date_labels = "%Y-%b")
 
 ```
+
+## Step 6 (before you add to EDI): 
+Download all of the final data and append this year's data: 
+
+```{r edi, eval = F}
+l <- list.files(path = "./final data/", pattern = "2020curve", full.names = T) 
+all_chla_old <- rbindlist(lapply(l, read.csv))
+
+l2 <- list.files(path = "./final data/", pattern = "20", full.names = T) 
+l3 <- l2[l2 %notin% l]
+all_chla_new <- rbindlist(lapply(l3, read.csv))
+
+all_chla_new$value_mgm2 <- signif(all_chla_new$value_mgm2,6) #round #s to max significant digits based on fluorometer significant figures 
+
+write.csv(all_chla_new, 
+          paste0("./final data/hbwtr_chla_mgm2_",min(year(all_chla_new$DATE)),"-",max(year(all_chla_new$DATE)),".csv"))
+
+
+```
