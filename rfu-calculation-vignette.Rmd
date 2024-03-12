@@ -443,7 +443,7 @@ ggplot(data = all_chla_new %>% filter(rep %in% c("M", "T", "WM"))) + geom_point(
 ```
 
 ## Step 6: only before you add to EDI 
-Download all of the final data and append this year's data: 
+Download all of the LOCAL final data and append this year's data: 
 
 ```{r edi, eval = F}
 l <- list.files(path = "./final data/", pattern = "2020curve", full.names = T) 
@@ -451,7 +451,9 @@ all_chla_old <- rbindlist(lapply(l, read.csv))
 
 l2 <- list.files(path = "./final data/", pattern = "20", full.names = T) 
 l3 <- l2[l2 %notin% l]
-all_chla_new <- rbindlist(lapply(l3, read.csv))
+l4 <- l3[-grep(pattern = "-",l3)]
+
+all_chla_new <- rbindlist(lapply(l4, read.csv))
 
 all_chla_new$value_mgm2 <- signif(all_chla_new$value_mgm2,6) #round #s to max significant digits based on fluorometer significant figures 
 
